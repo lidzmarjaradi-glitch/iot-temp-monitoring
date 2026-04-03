@@ -2173,7 +2173,15 @@
 
         async function updateStats() {
             const [stats, latest] = await Promise.all([fetchAPI('stats'), fetchAPI('latest')]);
-            if (!stats) return;
+
+            // If API calls fail, mark device offline immediately
+            if (!stats || !latest) {
+                deviceOnline = false;
+                const statusEl = document.getElementById('deviceStatus');
+                statusEl.innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
+                resetOfflineUI();
+                return;
+            }
 
             document.getElementById('avgTemp').innerHTML = `${stats.avg_temp || '--'}<span class="stat-unit"> °C</span>`;
             document.getElementById('avgHum').textContent = `Avg Humidity: ${stats.avg_hum || '--'}%`;
@@ -2184,12 +2192,12 @@
             _latestCache = latest; // Cache for updateLatest() to reuse
             const statusEl = document.getElementById('deviceStatus');
 
-            if (latest && latest.created_at) {
+            if (latest.created_at) {
                 const lastTime = new Date(latest.created_at);
                 const now = latest.server_time ? new Date(latest.server_time) : new Date();
                 const diffSec = Math.floor((now - lastTime) / 1000);
 
-                let isOnline = diffSec <= 60;
+                let isOnline = diffSec <= 30;
                 let indicator = isOnline ? 'online' : 'offline';
                 let label = isOnline ? 'Online' : 'Offline';
                 let labelClass = isOnline ? 'status-online' : 'status-offline';
@@ -2209,9 +2217,10 @@
                     resetOfflineUI();
                 }
             } else {
-                // No data yet — show waiting state but keep deviceOnline true
-                // so the UI recovers automatically when new data arrives
-                statusEl.innerHTML = `<span class="status-indicator online"></span><span class="status-online">Waiting for data...</span>`;
+                // No data in database — device is offline
+                deviceOnline = false;
+                statusEl.innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
+                resetOfflineUI();
             }
         }
 
