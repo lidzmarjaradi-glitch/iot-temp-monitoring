@@ -51,47 +51,47 @@ bool sendingEmail = false; // Guard against email blocking sensor reads
 
 void sendToDatabase(float temperature, float humidity)
 {
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    for (int attempt = 0; attempt < 2; attempt++)
-    {
-      HTTPClient http;
+  if (WiFi.status() != WL_CONNECTED)
+    return;
 
 #if LOCAL_TEST
-      // Local: plain HTTP to XAMPP
-      WiFiClient client;
-      String url = "http://" LOCAL_SERVER ":" + String(LOCAL_PORT) + "/iot-temp-monitoring/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
-      http.begin(client, url);
-      http.setTimeout(3000);
+  WiFiClient client;
 #else
-      // Production: HTTPS to remote server
-      BearSSL::WiFiClientSecure client;
-      client.setInsecure();
-      String url = "https://iot-temp-monitoring-iq6o.onrender.com/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
-      http.begin(client, url);
-      http.setTimeout(10000); // 10s timeout for Render (cold starts can be slow)
+  BearSSL::WiFiClientSecure client;
+  client.setInsecure();
 #endif
 
-      int httpCode = http.GET();
+  for (int attempt = 0; attempt < 2; attempt++)
+  {
+    HTTPClient http;
 
-      if (httpCode == 200)
-      {
-        String payload = http.getString();
-        Serial.println("Database: " + payload);
-        http.end();
-        return; // Success, exit retry loop
-      }
-      else
-      {
-        Serial.println("Database Error (attempt " + String(attempt + 1) + "): HTTP " + String(httpCode));
-      }
+#if LOCAL_TEST
+    String url = "http://" LOCAL_SERVER ":" + String(LOCAL_PORT) + "/iot-temp-monitoring/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
+    http.begin(client, url);
+    http.setTimeout(3000);
+#else
+    String url = "https://iot-temp-monitoring-iq6o.onrender.com/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
+    http.begin(client, url);
+    http.setTimeout(10000);
+#endif
 
-      http.end();
-      if (attempt == 0)
-      {
-        delay(1000); // Wait 1s before retry
-        yield();
-      }
+    int httpCode = http.GET();
+    http.end();
+
+    if (httpCode == 200)
+    {
+      Serial.println("Database: OK");
+      return;
+    }
+    else
+    {
+      Serial.println("DB Error (attempt " + String(attempt + 1) + "): " + String(httpCode));
+    }
+
+    if (attempt == 0)
+    {
+      delay(1000);
+      yield();
     }
   }
 }
@@ -134,7 +134,6 @@ void sendEmail(String subject, String message)
   session.login.password = AUTHOR_PASSWORD;
 
   yield();
-  sendHeartbeat();
 
   if (!smtp.connect(&session))
   {
@@ -144,7 +143,6 @@ void sendEmail(String subject, String message)
   }
 
   yield();
-  sendHeartbeat();
 
   if (!MailClient.sendMail(&smtp, &msg))
   {
@@ -334,6 +332,14 @@ void loop()
 
   yield(); // Feed the watchdog timer to prevent crashes
   timer.run();
+
+  // Log free heap every 30s for crash debugging
+  static unsigned long lastHeapLog = 0;
+  if (millis() - lastHeapLog > 30000)
+  {
+    lastHeapLog = millis();
+    Serial.println("Free heap: " + String(ESP.getFreeHeap()));
+  }
 
   if (pendingEmail && !sendingData && !sendingEmail)
   {
