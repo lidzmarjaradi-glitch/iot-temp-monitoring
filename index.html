@@ -1,0 +1,3104 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>IoT-Based Temperature Monitoring System for SSC Data Center</title>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌡️</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #334155;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #22c55e;
+            --accent-yellow: #eab308;
+            --accent-red: #ef4444;
+            --accent-orange: #f97316;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .header h1 span {
+            color: var(--accent-blue);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-card-hover);
+            transform: scale(1.05);
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .stat-unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* Gauge Section */
+        .gauge-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .gauge-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .gauge-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .gauge-card-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            align-self: flex-start;
+        }
+
+        /* Temperature Semicircle Gauge */
+        .temp-gauge-wrapper {
+            position: relative;
+            width: 180px;
+            height: 100px;
+            margin-bottom: 8px;
+        }
+
+        .temp-gauge-svg {
+            width: 180px;
+            height: 100px;
+        }
+
+        .temp-gauge-bg {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 14;
+            stroke-linecap: round;
+        }
+
+        .temp-gauge-fill {
+            fill: none;
+            stroke: var(--accent-orange);
+            stroke-width: 14;
+            stroke-linecap: round;
+            stroke-dasharray: 219.91;
+            stroke-dashoffset: 219.91;
+            transition: stroke-dashoffset 0.8s ease, stroke 0.3s;
+        }
+
+        .temp-gauge-value {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .temp-gauge-value span {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        .temp-gauge-range {
+            display: flex;
+            justify-content: space-between;
+            width: 180px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Humidity Ring Gauge */
+        .hum-gauge-wrapper {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin-bottom: 4px;
+        }
+
+        .hum-gauge-svg {
+            width: 140px;
+            height: 140px;
+            transform: rotate(-90deg);
+        }
+
+        .hum-gauge-bg {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 12;
+        }
+
+        .hum-gauge-fill {
+            fill: none;
+            stroke: var(--accent-orange);
+            stroke-width: 12;
+            stroke-linecap: round;
+            stroke-dasharray: 364.42;
+            stroke-dashoffset: 364.42;
+            transition: stroke-dashoffset 0.8s ease;
+        }
+
+        .hum-gauge-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .hum-gauge-value span {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        /* Warning / Solution Message Cards */
+        .msg-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .msg-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .msg-card-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .msg-card-text {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        @media (max-width: 1024px) {
+            .gauge-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .gauge-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-temp .stat-value {
+            color: var(--accent-orange);
+        }
+
+        .stat-hum .stat-value {
+            color: var(--accent-cyan);
+        }
+
+        .stat-avg .stat-value {
+            color: var(--accent-blue);
+        }
+
+        .stat-status .stat-value {
+            font-size: 26px;
+            letter-spacing: 0;
+        }
+
+        .stat-status .status-online {
+            color: var(--accent-green);
+        }
+
+        .stat-status .status-offline {
+            color: var(--accent-red);
+        }
+
+        .stat-status .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        .stat-status .status-indicator.online {
+            background: var(--accent-green);
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        .stat-status .status-indicator.offline {
+            background: var(--accent-red);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Warning Banner */
+        .warning-banner {
+            border-radius: 14px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .warning-banner.normal {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: var(--accent-green);
+        }
+
+        .warning-banner.high {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+            animation: flash 1.5s infinite;
+        }
+
+        .warning-banner.low {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+        }
+
+        @keyframes flash {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .warning-icon {
+            font-size: 28px;
+        }
+
+        .warning-text h3 {
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+
+        .warning-text p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        /* Charts Section */
+        .charts-section {
+            margin-bottom: 24px;
+        }
+
+        .charts-inner {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .chart-select {
+            padding: 7px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        }
+
+        .chart-select:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .chart-select:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .chart-date-picker {
+            padding: 7px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .chart-date-picker:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .chart-compare-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .chart-compare-toggle:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .chart-compare-toggle input {
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .chart-stats-bar {
+            display: flex;
+            gap: 0;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+            overflow-x: auto;
+        }
+
+        .chart-stat {
+            flex: 1;
+            text-align: center;
+            min-width: 80px;
+            padding: 4px 8px;
+            border-right: 1px solid var(--border);
+        }
+
+        .chart-stat:last-child {
+            border-right: none;
+        }
+
+        .chart-stat-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .chart-stat-value {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .chart-sub-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .chart-sub-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Table Section */
+        .table-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: var(--accent-green);
+        }
+
+        .btn-success:hover {
+            background: rgba(34, 197, 94, 0.2);
+        }
+
+        .btn-blue {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+        }
+
+        .btn-blue:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        /* Table */
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            background: var(--bg-secondary);
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 12px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:hover td {
+            background: var(--bg-card-hover);
+        }
+
+        .td-temp {
+            color: var(--accent-orange);
+            font-weight: 600;
+        }
+
+        .td-hum {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .delete-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.08);
+            color: var(--accent-red);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            transform: scale(1.1);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            background: var(--accent-green);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.error {
+            background: var(--accent-red);
+        }
+
+        /* Confirm Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .modal h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Responsive — Tablet */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .header-left {
+                min-width: 0;
+            }
+
+            .header h1 {
+                font-size: 14px;
+                line-height: 1.3;
+                word-break: break-word;
+            }
+
+            .header-icon {
+                width: 34px;
+                height: 34px;
+                min-width: 34px;
+                font-size: 16px;
+                border-radius: 8px;
+            }
+
+            .main {
+                padding: 16px 12px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .stat-value {
+                font-size: 24px;
+            }
+
+            .charts-inner {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 220px;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 14px 16px;
+            }
+
+            .table-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .btn {
+                padding: 7px 10px;
+                font-size: 12px;
+                gap: 4px;
+            }
+
+            .datetime-bar {
+                padding: 10px 12px;
+                gap: 12px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .datetime-bar .dt-label {
+                font-size: 10px;
+            }
+
+            .datetime-bar .dt-value {
+                font-size: 13px;
+            }
+
+            .warning-banner {
+                padding: 12px 16px;
+                gap: 10px;
+            }
+
+            .warning-text h3 {
+                font-size: 14px;
+            }
+
+            .warning-text p {
+                font-size: 12px;
+            }
+
+            .msg-card-text {
+                font-size: 18px;
+            }
+
+            .chart-stats-bar {
+                padding: 8px 12px;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .chart-stat {
+                min-width: 60px;
+                padding: 4px 6px;
+            }
+
+            th,
+            td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+        }
+
+        /* Responsive — Mobile */
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 12px;
+            }
+
+            .header h1 {
+                font-size: 12px;
+            }
+
+            .header h1 span {
+                display: block;
+                font-size: 11px;
+            }
+
+            .header-icon {
+                width: 30px;
+                height: 30px;
+                min-width: 30px;
+                font-size: 14px;
+            }
+
+            .status-badge {
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+
+            .theme-toggle {
+                width: 34px;
+                height: 34px;
+                font-size: 16px;
+            }
+
+            .main {
+                padding: 10px 8px;
+            }
+
+            .gauge-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .gauge-card {
+                padding: 16px 14px;
+            }
+
+            .temp-gauge-wrapper {
+                width: 160px;
+                height: 90px;
+            }
+
+            .temp-gauge-svg {
+                width: 160px;
+                height: 90px;
+            }
+
+            .temp-gauge-value {
+                font-size: 24px;
+            }
+
+            .temp-gauge-range {
+                width: 160px;
+            }
+
+            .hum-gauge-wrapper {
+                width: 120px;
+                height: 120px;
+            }
+
+            .hum-gauge-svg {
+                width: 120px;
+                height: 120px;
+            }
+
+            .hum-gauge-value {
+                font-size: 26px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            .stat-card {
+                padding: 14px 12px;
+            }
+
+            .stat-value {
+                font-size: 20px;
+            }
+
+            .stat-unit {
+                font-size: 12px;
+            }
+
+            .stat-label {
+                font-size: 10px;
+            }
+
+            .stat-sub {
+                font-size: 10px;
+            }
+
+            .stat-status .stat-value {
+                font-size: 18px;
+            }
+
+            .msg-card {
+                padding: 16px 14px;
+            }
+
+            .msg-card-label {
+                font-size: 10px;
+                margin-bottom: 10px;
+            }
+
+            .msg-card-text {
+                font-size: 16px;
+            }
+
+            .warning-banner {
+                padding: 10px 12px;
+                gap: 8px;
+                border-radius: 10px;
+            }
+
+            .warning-icon {
+                font-size: 22px;
+            }
+
+            .warning-text h3 {
+                font-size: 13px;
+            }
+
+            .warning-text p {
+                font-size: 11px;
+            }
+
+            .datetime-bar {
+                padding: 8px 10px;
+                gap: 8px;
+                font-size: 12px;
+            }
+
+            .datetime-bar .dt-icon {
+                font-size: 13px;
+            }
+
+            .datetime-bar .dt-label {
+                font-size: 9px;
+            }
+
+            .datetime-bar .dt-value {
+                font-size: 11px;
+            }
+
+            .datetime-bar .dt-separator {
+                width: 3px;
+                height: 3px;
+            }
+
+            .chart-container {
+                height: 180px;
+            }
+
+            .card-header {
+                padding: 12px;
+            }
+
+            .card-title {
+                font-size: 13px;
+            }
+
+            .card-body {
+                padding: 12px;
+            }
+
+            .btn {
+                padding: 6px 8px;
+                font-size: 11px;
+                border-radius: 6px;
+            }
+
+            .chart-select {
+                font-size: 11px;
+                padding: 5px 24px 5px 8px;
+            }
+
+            th,
+            td {
+                padding: 8px 6px;
+                font-size: 11px;
+            }
+
+            .delete-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+
+            .toast {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+                font-size: 13px;
+                padding: 12px 16px;
+                text-align: center;
+            }
+
+            .modal {
+                padding: 20px;
+                width: 92%;
+            }
+
+            .modal h3 {
+                font-size: 16px;
+            }
+
+            .chart-stats-bar {
+                padding: 6px 8px;
+            }
+
+            .chart-stat {
+                min-width: 50px;
+                padding: 3px 4px;
+            }
+
+            .chart-stat-label {
+                font-size: 8px;
+            }
+
+            .chart-stat-value {
+                font-size: 12px;
+            }
+
+            .chart-sub-header {
+                font-size: 12px;
+                padding: 10px 12px;
+            }
+
+            .empty-state {
+                padding: 30px 16px;
+            }
+
+            .empty-state .icon {
+                font-size: 36px;
+            }
+
+            .empty-state p {
+                font-size: 12px;
+            }
+        }
+
+        /* Responsive — Large screens (1440p, 4K, ultrawide, smart TVs) */
+        @media (min-width: 1600px) {
+            .main {
+                max-width: 1800px;
+                padding: 32px 48px;
+            }
+
+            .header {
+                padding: 20px 48px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .header-icon {
+                width: 48px;
+                height: 48px;
+                font-size: 24px;
+            }
+
+            .status-badge {
+                font-size: 15px;
+                padding: 8px 18px;
+            }
+
+            .theme-toggle {
+                width: 48px;
+                height: 48px;
+                font-size: 22px;
+            }
+
+            .datetime-bar {
+                padding: 14px 48px;
+                gap: 32px;
+                font-size: 16px;
+            }
+
+            .datetime-bar .dt-label {
+                font-size: 13px;
+            }
+
+            .datetime-bar .dt-value {
+                font-size: 17px;
+            }
+
+            .gauge-grid {
+                gap: 24px;
+            }
+
+            .gauge-card {
+                padding: 32px 28px;
+            }
+
+            .gauge-card-label {
+                font-size: 14px;
+            }
+
+            .temp-gauge-wrapper {
+                width: 220px;
+                height: 120px;
+            }
+
+            .temp-gauge-svg {
+                width: 220px;
+                height: 120px;
+            }
+
+            .temp-gauge-value {
+                font-size: 34px;
+            }
+
+            .temp-gauge-range {
+                width: 220px;
+                font-size: 14px;
+            }
+
+            .hum-gauge-wrapper {
+                width: 170px;
+                height: 170px;
+            }
+
+            .hum-gauge-svg {
+                width: 170px;
+                height: 170px;
+            }
+
+            .hum-gauge-value {
+                font-size: 38px;
+            }
+
+            .msg-card-label {
+                font-size: 14px;
+            }
+
+            .msg-card-text {
+                font-size: 26px;
+            }
+
+            .stats-grid {
+                gap: 20px;
+            }
+
+            .stat-card {
+                padding: 24px;
+            }
+
+            .stat-label {
+                font-size: 13px;
+            }
+
+            .stat-value {
+                font-size: 38px;
+            }
+
+            .stat-unit {
+                font-size: 18px;
+            }
+
+            .stat-sub {
+                font-size: 14px;
+            }
+
+            .stat-status .stat-value {
+                font-size: 30px;
+            }
+
+            .warning-banner {
+                padding: 20px 28px;
+                gap: 18px;
+                border-radius: 16px;
+            }
+
+            .warning-icon {
+                font-size: 34px;
+            }
+
+            .warning-text h3 {
+                font-size: 20px;
+            }
+
+            .warning-text p {
+                font-size: 15px;
+            }
+
+            .card-header {
+                padding: 20px 24px;
+            }
+
+            .card-title {
+                font-size: 18px;
+            }
+
+            .card-body {
+                padding: 24px;
+            }
+
+            .chart-container {
+                height: 380px;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 15px;
+            }
+
+            .chart-select {
+                font-size: 15px;
+                padding: 9px 34px 9px 14px;
+            }
+
+            th {
+                padding: 14px 20px;
+                font-size: 13px;
+            }
+
+            td {
+                padding: 14px 20px;
+                font-size: 16px;
+            }
+
+            .delete-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+
+            .chart-stats-bar {
+                padding: 14px 24px;
+            }
+
+            .chart-stat-label {
+                font-size: 12px;
+            }
+
+            .chart-stat-value {
+                font-size: 16px;
+            }
+
+            .chart-sub-header {
+                font-size: 15px;
+                padding: 14px 20px;
+            }
+
+            .toast {
+                font-size: 16px;
+                padding: 16px 28px;
+            }
+        }
+
+        @media (min-width: 2200px) {
+            .main {
+                max-width: 2200px;
+                padding: 40px 64px;
+            }
+
+            .header {
+                padding: 24px 64px;
+            }
+
+            .header h1 {
+                font-size: 28px;
+            }
+
+            .header-icon {
+                width: 54px;
+                height: 54px;
+                font-size: 28px;
+            }
+
+            .datetime-bar {
+                padding: 16px 64px;
+                font-size: 18px;
+            }
+
+            .gauge-grid {
+                gap: 28px;
+            }
+
+            .temp-gauge-wrapper {
+                width: 260px;
+                height: 140px;
+            }
+
+            .temp-gauge-svg {
+                width: 260px;
+                height: 140px;
+            }
+
+            .temp-gauge-value {
+                font-size: 40px;
+            }
+
+            .temp-gauge-range {
+                width: 260px;
+            }
+
+            .hum-gauge-wrapper {
+                width: 200px;
+                height: 200px;
+            }
+
+            .hum-gauge-svg {
+                width: 200px;
+                height: 200px;
+            }
+
+            .hum-gauge-value {
+                font-size: 44px;
+            }
+
+            .msg-card-text {
+                font-size: 30px;
+            }
+
+            .stat-value {
+                font-size: 44px;
+            }
+
+            .stat-status .stat-value {
+                font-size: 34px;
+            }
+
+            .chart-container {
+                height: 450px;
+            }
+
+            .warning-icon {
+                font-size: 40px;
+            }
+
+            .warning-text h3 {
+                font-size: 24px;
+            }
+
+            .warning-text p {
+                font-size: 17px;
+            }
+
+            td {
+                font-size: 17px;
+            }
+        }
+
+        /* DateTime Bar */
+        .datetime-bar {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.08));
+            border-bottom: 1px solid var(--border);
+            padding: 10px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .datetime-bar .dt-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .datetime-bar .dt-icon {
+            font-size: 16px;
+        }
+
+        .datetime-bar .dt-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .datetime-bar .dt-value {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .datetime-bar .dt-separator {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="header-icon">🌡️</div>
+            <h1>IoT-Based Temperature Monitoring System <span>for SSC Data Center</span></h1>
+        </div>
+        <div class="header-right">
+            <div class="status-badge" id="statusBadge">
+                <div class="status-dot"></div>
+                <span>Live</span>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+        </div>
+    </header>
+
+    <!-- DateTime Bar -->
+    <div class="datetime-bar" id="datetimeBar">
+        <div class="dt-item">
+            <span class="dt-icon">📅</span>
+            <span class="dt-label">Date</span>
+            <span class="dt-value" id="dtDate">--</span>
+        </div>
+        <div class="dt-separator"></div>
+        <div class="dt-item">
+            <span class="dt-icon">📆</span>
+            <span class="dt-label">Day</span>
+            <span class="dt-value" id="dtDay">--</span>
+        </div>
+        <div class="dt-separator"></div>
+        <div class="dt-item">
+            <span class="dt-icon">🕐</span>
+            <span class="dt-label">Time</span>
+            <span class="dt-value" id="dtTime">--</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- Warning Banner -->
+        <div class="warning-banner normal" id="warningBanner">
+            <div class="warning-icon">⏳</div>
+            <div class="warning-text">
+                <h3 id="warningTitle">Waiting for Data</h3>
+                <p id="warningSolution">Connecting to sensor...</p>
+            </div>
+        </div>
+
+        <!-- Gauges Section -->
+        <div class="gauge-grid">
+            <!-- Temperature Gauge -->
+            <div class="gauge-card">
+                <div class="gauge-card-label">🌡️ Temperature</div>
+                <div class="temp-gauge-wrapper">
+                    <svg class="temp-gauge-svg" viewBox="0 0 180 100">
+                        <path class="temp-gauge-bg" d="M 20,90 A 70,70 0 0,1 160,90" />
+                        <path class="temp-gauge-fill" id="tempGaugeFill" d="M 20,90 A 70,70 0 0,1 160,90" />
+                    </svg>
+                    <div class="temp-gauge-value" id="tempGaugeValue">--<span>°C</span></div>
+                </div>
+                <div class="temp-gauge-range"><span>0</span><span>80</span></div>
+            </div>
+
+            <!-- Humidity Gauge -->
+            <div class="gauge-card">
+                <div class="gauge-card-label">💧 Humidity</div>
+                <div class="hum-gauge-wrapper">
+                    <svg class="hum-gauge-svg" viewBox="0 0 140 140">
+                        <circle class="hum-gauge-bg" cx="70" cy="70" r="58" />
+                        <circle class="hum-gauge-fill" id="humGaugeFill" cx="70" cy="70" r="58" />
+                    </svg>
+                    <div class="hum-gauge-value" id="humGaugeValue">--<span>%</span></div>
+                </div>
+            </div>
+
+            <!-- Temperature Status -->
+            <div class="msg-card">
+                <div class="msg-card-label" id="tempStatusLabel">⏳ Temperature Status</div>
+                <div class="msg-card-text" id="gaugeWarning">Waiting for data...</div>
+            </div>
+
+            <!-- Recommended Action -->
+            <div class="msg-card">
+                <div class="msg-card-label" id="actionLabel">📋 Recommended Action</div>
+                <div class="msg-card-text" id="gaugeSolution">Waiting for sensor data...</div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card stat-temp">
+                <div class="stat-label">🌡️ Temperature</div>
+                <div class="stat-value" id="currentTemp">--<span class="stat-unit"> °C</span></div>
+                <div class="stat-sub" id="tempRange">Min: -- / Max: --</div>
+            </div>
+            <div class="stat-card stat-hum">
+                <div class="stat-label">💧 Humidity</div>
+                <div class="stat-value" id="currentHum">--<span class="stat-unit"> %</span></div>
+                <div class="stat-sub" id="humRange">Min: -- / Max: --</div>
+            </div>
+            <div class="stat-card stat-avg">
+                <div class="stat-label">📊 Average Temp</div>
+                <div class="stat-value" id="avgTemp">--<span class="stat-unit"> °C</span></div>
+                <div class="stat-sub" id="avgHum">Avg Humidity: --%</div>
+            </div>
+            <div class="stat-card stat-status">
+                <div class="stat-label">📡 Device Status</div>
+                <div class="stat-value" id="deviceStatus"><span class="status-indicator offline"></span><span
+                        class="status-offline">Offline</span></div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📈 Temperature & Humidity</div>
+                    <div class="table-actions">
+                        <input type="date" class="chart-date-picker" id="chartDatePicker" style="display:none;"
+                            onchange="onChartDateChange(this.value)">
+                        <label class="chart-compare-toggle" id="compareToggle" style="display:none;">
+                            <input type="checkbox" id="compareCheck" onchange="onCompareToggle(this.checked)"> <span>vs
+                                Previous Month</span>
+                        </label>
+                        <select class="chart-select" id="chartView" onchange="setChartView(this.value)">
+                            <option value="realtime" selected>Real-time</option>
+                            <option value="day">Per Day</option>
+                            <option value="week">Per Week</option>
+                            <option value="month">Per Month</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Day summary stats bar (only for Per Day) -->
+                <div class="chart-stats-bar" id="chartStatsBar" style="display:none;">
+                    <div class="chart-stat"><span class="chart-stat-label">Avg Temp</span><span class="chart-stat-value"
+                            id="csDayAvgTemp">--</span></div>
+                    <div class="chart-stat"><span class="chart-stat-label">Min Temp</span><span class="chart-stat-value"
+                            id="csDayMinTemp">--</span></div>
+                    <div class="chart-stat"><span class="chart-stat-label">Max Temp</span><span class="chart-stat-value"
+                            id="csDayMaxTemp">--</span></div>
+                    <div class="chart-stat"><span class="chart-stat-label">Avg Hum</span><span class="chart-stat-value"
+                            id="csDayAvgHum">--</span></div>
+                    <div class="chart-stat"><span class="chart-stat-label">Min Hum</span><span class="chart-stat-value"
+                            id="csDayMinHum">--</span></div>
+                    <div class="chart-stat"><span class="chart-stat-label">Max Hum</span><span class="chart-stat-value"
+                            id="csDayMaxHum">--</span></div>
+                    <div class="chart-stat"><span class="chart-stat-label">Readings</span><span class="chart-stat-value"
+                            id="csDayCount">--</span></div>
+                </div>
+                <div class="card-body">
+                    <div class="charts-inner">
+                        <div class="chart-sub-card">
+                            <div class="chart-sub-header">🌡️ Temperature (°C)</div>
+                            <div style="padding: 12px 16px;">
+                                <div class="chart-container">
+                                    <canvas id="tempChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-sub-card">
+                            <div class="chart-sub-header">💧 Humidity (%)</div>
+                            <div style="padding: 12px 16px;">
+                                <div class="chart-container">
+                                    <canvas id="humChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">🌡️ Temperature Reading</div>
+                <div class="table-actions">
+                    <button class="btn btn-blue" onclick="exportCSV()">� Generate Report</button>
+                    <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="confirmTruncate()">🗑️ Delete All</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Temperature (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="5">
+                                <div class="empty-state">
+                                    <div class="icon">📡</div>
+                                    <p>Waiting for data...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Stable Reading Table -->
+        <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+                <div class="card-title">✅ Stable Readings <span id="stableCount"
+                        style="font-size:12px; padding:3px 10px; border-radius:12px; background:rgba(34,197,94,0.15); color:var(--accent-green); margin-left:8px;">0</span>
+                    <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">18°C – 24°C</span>
+                </div>
+                <div class="table-actions">
+                    <button class="btn btn-primary" onclick="exportStatusReport('stable')">📄 Generate Report</button>
+                    <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="confirmTruncateStatus('stable')">🗑️ Delete All</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Temperature (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stableTableBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="icon">📡</div>
+                                    <p>No stable readings yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Warning Reading Table -->
+        <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+                <div class="card-title">⚠️ Warning Readings <span id="warningCount"
+                        style="font-size:12px; padding:3px 10px; border-radius:12px; background:rgba(234,179,8,0.15); color:#eab308; margin-left:8px;">0</span>
+                    <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">25°C – 30°C</span>
+                </div>
+                <div class="table-actions">
+                    <button class="btn btn-primary" onclick="exportStatusReport('warning')">📄 Generate Report</button>
+                    <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="confirmTruncateStatus('warning')">🗑️ Delete All</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Temperature (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="warningTableBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="icon">📡</div>
+                                    <p>No warning readings yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Critical Reading Table -->
+        <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+                <div class="card-title">🚨 Critical Readings <span id="criticalCount"
+                        style="font-size:12px; padding:3px 10px; border-radius:12px; background:rgba(239,68,68,0.15); color:var(--accent-red); margin-left:8px;">0</span>
+                    <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">Above 30°C</span>
+                </div>
+                <div class="table-actions">
+                    <button class="btn btn-primary" onclick="exportStatusReport('critical')">📄 Generate Report</button>
+                    <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="confirmTruncateStatus('critical')">🗑️ Delete All</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Temperature (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="criticalTableBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="icon">📡</div>
+                                    <p>No critical readings yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Low Reading Table -->
+        <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+                <div class="card-title">🔵 Low Readings <span id="lowCount"
+                        style="font-size:12px; padding:3px 10px; border-radius:12px; background:rgba(59,130,246,0.15); color:var(--accent-blue); margin-left:8px;">0</span>
+                    <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">15°C – 17°C</span>
+                </div>
+                <div class="table-actions">
+                    <button class="btn btn-primary" onclick="exportStatusReport('low')">📄 Generate Report</button>
+                    <button class="btn btn-success" onclick="refreshData()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="confirmTruncateStatus('low')">🗑️ Delete All</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Temperature (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lowTableBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="icon">📡</div>
+                                    <p>No low readings yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Confirm Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h3 id="modalTitle">Confirm</h3>
+            <p id="modalMessage">Are you sure?</p>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-danger" id="modalConfirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'api.php';
+        let tempChart, humChart;
+        let refreshInterval;
+        let deviceOnline = false;
+        let _latestCache = null;
+        let _refreshCycle = 0;
+        let _refreshing = false;
+        let _lastDataHash = '';
+        let _lastTableHash = '';
+
+        // ── Theme Toggle ──
+        function initTheme() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateThemeIcon(saved);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeIcon(next);
+            updateChartTheme();
+        }
+
+        function updateThemeIcon(theme) {
+            document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        initTheme();
+
+        // ── Toast ──
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show' + (isError ? ' error' : '');
+            setTimeout(() => toast.className = 'toast', 3000);
+        }
+
+        // ── Modal ──
+        let modalCallback = null;
+
+        function openModal(title, message, onConfirm) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalOverlay').classList.add('active');
+            modalCallback = onConfirm;
+            document.getElementById('modalConfirm').onclick = () => {
+                closeModal();
+                if (modalCallback) modalCallback();
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal();
+        });
+
+        // ── Offline UI Reset ──
+        function resetOfflineUI() {
+            const banner = document.getElementById('warningBanner');
+            banner.className = 'warning-banner normal';
+            document.querySelector('.warning-icon').textContent = '⏸️';
+            document.getElementById('warningTitle').textContent = 'Device Offline';
+            document.getElementById('warningSolution').textContent = 'No live data. Device is not sending readings.';
+            document.getElementById('tempStatusLabel').textContent = '⏸️ Device Status';
+            document.getElementById('gaugeWarning').textContent = 'Device Offline';
+            document.getElementById('actionLabel').textContent = '📋 Recommended Action';
+            document.getElementById('gaugeSolution').textContent = 'Check device power and network connection.';
+        }
+
+        // ── API Calls ──
+        async function fetchAPI(action, params = '') {
+            try {
+                const res = await fetch(`${API}?action=${action}${params}`);
+                return await res.json();
+            } catch (e) {
+                console.error('API Error:', e);
+                return null;
+            }
+        }
+
+        // ── Update Dashboard ──
+        async function updateLatest() {
+            if (!deviceOnline) return;
+
+            const data = _latestCache || await fetchAPI('latest');
+            if (!data || !data.temperature) return;
+
+            const temp = parseFloat(data.temperature);
+            const hum = parseFloat(data.humidity);
+
+            document.getElementById('currentTemp').innerHTML = `${temp}<span class="stat-unit"> °C</span>`;
+            document.getElementById('currentHum').innerHTML = `${hum}<span class="stat-unit"> %</span>`;
+
+            // Update gauges
+            updateTempGauge(temp);
+            updateHumGauge(hum);
+
+            // Warning banner
+            const banner = document.getElementById('warningBanner');
+            const title = document.getElementById('warningTitle');
+            const solution = document.getElementById('warningSolution');
+            const icon = document.querySelector('.warning-icon');
+
+            const statusLabel = document.getElementById('tempStatusLabel');
+            const actionLabel = document.getElementById('actionLabel');
+            let warnText, solText, labelText, actLabel;
+            if (temp > 30) {
+                banner.className = 'warning-banner high';
+                icon.textContent = '🚨';
+                labelText = '🚨 Critical Alert';
+                warnText = 'Critical Temperature!';
+                actLabel = '🛠️ Immediate Action Required';
+                solText = 'Shut down non-essential equipment and inspect cooling system immediately.';
+            } else if (temp >= 25 && temp <= 30) {
+                banner.className = 'warning-banner high';
+                icon.textContent = '⚠️';
+                labelText = '⚠️ Warning Alert';
+                warnText = 'Warning Temperature!';
+                actLabel = '💡 Recommended Action';
+                solText = 'Turn on fan or air conditioning to lower the temperature.';
+            } else if (temp >= 18 && temp <= 24) {
+                banner.className = 'warning-banner normal';
+                icon.textContent = '✅';
+                labelText = '✅ Temperature Status';
+                warnText = 'Stable Temperature';
+                actLabel = '📋 Recommended Action';
+                solText = 'Environment is stable. No action needed.';
+            } else if (temp >= 15 && temp <= 17) {
+                banner.className = 'warning-banner low';
+                icon.textContent = '🔵';
+                labelText = '🔵 Low Alert';
+                warnText = 'Low Temperature!';
+                actLabel = '💡 Recommended Action';
+                solText = 'Consider turning on a heater to raise the temperature.';
+            } else {
+                banner.className = 'warning-banner low';
+                icon.textContent = '❄️';
+                labelText = '❄️ Critical Alert';
+                warnText = 'Very Low Temperature!';
+                actLabel = '🛠️ Immediate Action Required';
+                solText = 'Temperature is critically low. Activate heating system immediately.';
+            }
+            title.textContent = warnText;
+            solution.textContent = solText;
+            document.getElementById('gaugeWarning').textContent = warnText;
+            document.getElementById('gaugeSolution').textContent = solText;
+            statusLabel.textContent = labelText;
+            actionLabel.textContent = actLabel;
+        }
+
+        async function updateStats() {
+            const [stats, latest] = await Promise.all([fetchAPI('stats'), fetchAPI('latest')]);
+            if (!stats) return;
+
+            document.getElementById('avgTemp').innerHTML = `${stats.avg_temp || '--'}<span class="stat-unit"> °C</span>`;
+            document.getElementById('avgHum').textContent = `Avg Humidity: ${stats.avg_hum || '--'}%`;
+            document.getElementById('tempRange').textContent = `Min: ${stats.min_temp || '--'} / Max: ${stats.max_temp || '--'}`;
+            document.getElementById('humRange').textContent = `Min: ${stats.min_hum || '--'} / Max: ${stats.max_hum || '--'}`;
+
+            // Update device status based on latest reading time
+            _latestCache = latest; // Cache for updateLatest() to reuse
+            const statusEl = document.getElementById('deviceStatus');
+
+            if (latest && latest.created_at) {
+                const lastTime = new Date(latest.created_at);
+                const now = latest.server_time ? new Date(latest.server_time) : new Date();
+                const diffSec = Math.floor((now - lastTime) / 1000);
+
+                let isOnline = diffSec <= 60;
+                let indicator = isOnline ? 'online' : 'offline';
+                let label = isOnline ? 'Online' : 'Offline';
+                let labelClass = isOnline ? 'status-online' : 'status-offline';
+
+                statusEl.innerHTML = `<span class="status-indicator ${indicator}"></span><span class="${labelClass}">${label}</span>`;
+
+                deviceOnline = isOnline;
+
+                // Reset gauges, stats, and status cards when offline
+                if (!isOnline) {
+                    updateTempGauge(0);
+                    updateHumGauge(0);
+                    document.getElementById('tempGaugeValue').innerHTML = `--<span>°C</span>`;
+                    document.getElementById('humGaugeValue').innerHTML = `--<span>%</span>`;
+                    document.getElementById('currentTemp').innerHTML = `--<span class="stat-unit"> °C</span>`;
+                    document.getElementById('currentHum').innerHTML = `--<span class="stat-unit"> %</span>`;
+                    resetOfflineUI();
+                }
+            } else {
+                // No data yet — show waiting state but keep deviceOnline true
+                // so the UI recovers automatically when new data arrives
+                statusEl.innerHTML = `<span class="status-indicator online"></span><span class="status-online">Waiting for data...</span>`;
+            }
+        }
+
+        /* ── Charts — Temperature & Humidity with threshold lines ── */
+        let _chartTheme = null;
+        let chartView = 'realtime';
+
+        // Helper: get local date string YYYY-MM-DD (not UTC)
+        function localDateStr(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${dd}`;
+        }
+
+        let chartSelectedDate = localDateStr(new Date());
+        let chartCompare = false;
+
+        // Threshold constants (°C)
+        const THRESH_WARNING = 25;
+        const THRESH_CRITICAL = 30;
+
+        function buildChart(canvasId, label, datasets, labels, dark, yUnit) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const ch = canvas.getBoundingClientRect().height || 300;
+
+            const gridClr = dark ? 'rgba(148,163,184,0.07)' : 'rgba(15,23,42,0.06)';
+            const txtClr = dark ? '#94a3b8' : '#64748b';
+
+            // Build threshold annotation lines for temperature charts
+            const annotations = {};
+            if (yUnit === '°C') {
+                annotations.warningLine = {
+                    type: 'line', yMin: THRESH_WARNING, yMax: THRESH_WARNING,
+                    borderColor: 'rgba(234,179,8,0.6)', borderWidth: 1.5, borderDash: [6, 4],
+                    label: {
+                        display: true, content: `Warning (${THRESH_WARNING}°C)`, position: 'start',
+                        backgroundColor: 'rgba(234,179,8,0.15)', color: '#eab308', font: { size: 10, weight: '600' }, padding: 3
+                    }
+                };
+                annotations.criticalLine = {
+                    type: 'line', yMin: THRESH_CRITICAL, yMax: THRESH_CRITICAL,
+                    borderColor: 'rgba(239,68,68,0.6)', borderWidth: 1.5, borderDash: [6, 4],
+                    label: {
+                        display: true, content: `Critical (${THRESH_CRITICAL}°C)`, position: 'start',
+                        backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444', font: { size: 10, weight: '600' }, padding: 3
+                    }
+                };
+            }
+
+            const chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: datasets.length > 1, position: 'top',
+                            labels: { color: txtClr, usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            backgroundColor: dark ? '#1e293b' : '#fff',
+                            titleColor: dark ? '#f1f5f9' : '#0f172a',
+                            bodyColor: dark ? '#94a3b8' : '#475569',
+                            borderColor: dark ? '#334155' : '#e2e8f0',
+                            borderWidth: 1, cornerRadius: 8, padding: 12,
+                            titleFont: { size: 13, weight: '600' },
+                            bodyFont: { size: 12 },
+                            displayColors: true, boxWidth: 8, boxHeight: 8, usePointStyle: true,
+                            callbacks: {
+                                label: function (ctx) {
+                                    let val = ctx.parsed.y;
+                                    if (val == null) return null;
+                                    let suffix = yUnit === '°C' ? ' °C' : ' %';
+                                    let status = '';
+                                    if (yUnit === '°C') {
+                                        if (val > THRESH_CRITICAL) status = ' 🔴 CRITICAL';
+                                        else if (val >= THRESH_WARNING) status = ' 🟡 WARNING';
+                                        else if (val >= 18) status = ' 🟢 NORMAL';
+                                        else if (val >= 15) status = ' 🔵 LOW';
+                                        else status = ' ❄️ VERY LOW';
+                                    }
+                                    return `${ctx.dataset.label}: ${val}${suffix}${status}`;
+                                }
+                            }
+                        },
+                        annotation: { annotations }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: txtClr, maxRotation: 45, maxTicksLimit: 12, font: { size: 10 } },
+                            grid: { color: gridClr, borderDash: [3, 3], drawBorder: false },
+                            border: { display: false }
+                        },
+                        y: {
+                            ticks: { color: txtClr, font: { size: 11 }, callback: v => v + (yUnit === '°C' ? '°' : '%') },
+                            grid: { color: gridClr, borderDash: [3, 3], drawBorder: false },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+            return chartInstance;
+        }
+
+        function makeDataset(label, data, color, dark, dashed) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, 300);
+            grad.addColorStop(0, dark ? color.replace('1)', '0.18)') : color.replace('1)', '0.13)'));
+            grad.addColorStop(1, color.replace('1)', '0)'));
+            return {
+                label, data,
+                borderColor: color,
+                backgroundColor: dashed ? 'transparent' : grad,
+                borderWidth: dashed ? 1.5 : 2.5,
+                borderDash: dashed ? [5, 5] : [],
+                pointRadius: data.length > 80 ? 0 : 3,
+                pointHitRadius: 10,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: color,
+                pointHoverBorderColor: dark ? '#1e293b' : '#fff',
+                pointHoverBorderWidth: 2,
+                tension: 0.4,
+                fill: !dashed,
+                spanGaps: false
+            };
+        }
+
+        // ── Color-coded segment plugin for temperature (green/yellow/red line) ──
+        const tempSegmentColor = function (ctx) {
+            const val = ctx.p1.parsed.y;
+            if (val == null) return undefined;
+            if (val > THRESH_CRITICAL) return 'rgba(239,68,68,1)';   // Red
+            if (val >= THRESH_WARNING) return 'rgba(234,179,8,1)';   // Yellow
+            if (val >= 18) return 'rgba(34,197,94,1)';               // Green
+            if (val >= 15) return 'rgba(59,130,246,1)';              // Blue
+            return 'rgba(147,197,253,1)';                            // Light blue
+        };
+
+        function setChartView(view) {
+            chartView = view;
+            // Show/hide date picker
+            document.getElementById('chartDatePicker').style.display = (view === 'day') ? '' : 'none';
+            // Show/hide compare toggle
+            document.getElementById('compareToggle').style.display = (view === 'month') ? '' : 'none';
+            // Show/hide stats bar
+            document.getElementById('chartStatsBar').style.display = (view === 'day') ? 'flex' : 'none';
+            _chartTheme = null;
+            updateChart();
+        }
+
+        function onChartDateChange(val) {
+            chartSelectedDate = val;
+            _chartTheme = null;
+            updateChart();
+        }
+
+        function onCompareToggle(checked) {
+            chartCompare = checked;
+            _chartTheme = null;
+            updateChart();
+        }
+
+        async function updateChart() {
+            const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+            let tempDatasets = [], humDatasets = [], labels = [];
+
+            // Helper: format timestamp to label
+            function fmtLabel(created_at, mode) {
+                if (!created_at) return '--';
+                const dt = new Date(created_at.replace(' ', 'T'));
+                const h = dt.getHours(), m = String(dt.getMinutes()).padStart(2, '0'), s = String(dt.getSeconds()).padStart(2, '0');
+                const ap = h >= 12 ? 'PM' : 'AM';
+                const h12 = h % 12 || 12;
+                const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                if (mode === 'time') return `${h12}:${m}:${s} ${ap}`;
+                if (mode === 'dayTime') return `${shortDays[dt.getDay()]} ${h12}:${m} ${ap}`;
+                if (mode === 'dateTime') return `${shortMonths[dt.getMonth()]} ${dt.getDate()} ${h12}:${m} ${ap}`;
+                return `${h12}:${m}:${s} ${ap}`;
+            }
+
+            // Helper: process raw readings into labels + datasets
+            function processReadings(raw, labelMode, tempLabel, humLabel, dashed) {
+                const data = raw || [];
+                const lbl = data.map(d => fmtLabel(d.created_at, labelMode));
+                const temps = data.map(d => parseFloat(d.temperature));
+                const hums = data.map(d => parseFloat(d.humidity));
+                const tDs = makeDataset(tempLabel, temps, dashed ? 'rgba(249,115,22,0.5)' : 'rgba(249,115,22,1)', dark, dashed);
+                if (!dashed) tDs.segment = { borderColor: tempSegmentColor };
+                const hDs = makeDataset(humLabel, hums, dashed ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,1)', dark, dashed);
+                return { labels: lbl, tempDs: tDs, humDs: hDs };
+            }
+
+            if (chartView === 'realtime') {
+                // ── Real-time: last 100 readings ──
+                const raw = await fetchAPI('chart', '&view=realtime');
+                if (!raw || !raw.length) return;
+                const p = processReadings(raw, 'time', 'Temperature', 'Humidity', false);
+                labels = p.labels;
+                tempDatasets = [p.tempDs];
+                humDatasets = [p.humDs];
+
+            } else if (chartView === 'day') {
+                // ── Per Day: all readings for selected date + summary stats ──
+                const raw = await fetchAPI('chart', `&view=day&date=${chartSelectedDate}`);
+                if (!raw) return;
+
+                const readings = raw.readings || [];
+                const summary = raw.summary || {};
+
+                // Update stats bar
+                document.getElementById('csDayAvgTemp').textContent = summary.avg_temp ? `${summary.avg_temp}°C` : '--';
+                document.getElementById('csDayMinTemp').textContent = summary.min_temp ? `${summary.min_temp}°C` : '--';
+                document.getElementById('csDayMaxTemp').textContent = summary.max_temp ? `${summary.max_temp}°C` : '--';
+                document.getElementById('csDayAvgHum').textContent = summary.avg_hum ? `${summary.avg_hum}%` : '--';
+                document.getElementById('csDayMinHum').textContent = summary.min_hum ? `${summary.min_hum}%` : '--';
+                document.getElementById('csDayMaxHum').textContent = summary.max_hum ? `${summary.max_hum}%` : '--';
+                document.getElementById('csDayCount').textContent = summary.total_readings || '0';
+
+                const p = processReadings(readings, 'time', 'Temperature', 'Humidity', false);
+                labels = p.labels;
+                tempDatasets = [p.tempDs];
+                humDatasets = [p.humDs];
+
+            } else if (chartView === 'week') {
+                // ── Per Week: all readings from last 7 days ──
+                const raw = await fetchAPI('chart', '&view=week');
+                if (!raw || !raw.length) return;
+                const p = processReadings(raw, 'dayTime', 'Temperature', 'Humidity', false);
+                labels = p.labels;
+                tempDatasets = [p.tempDs];
+                humDatasets = [p.humDs];
+
+            } else if (chartView === 'month') {
+                // ── Per Month: all readings from last 30 days ──
+                const compare = chartCompare ? '1' : '0';
+                const raw = await fetchAPI('chart', `&view=month&compare=${compare}`);
+                if (!raw) return;
+
+                const current = raw.current || [];
+                const p = processReadings(current, 'dateTime', 'Current Month', 'Current Month', false);
+                labels = p.labels;
+                tempDatasets = [p.tempDs];
+                humDatasets = [p.humDs];
+
+                // Optional previous month comparison
+                if (chartCompare && raw.previous && raw.previous.length) {
+                    const pp = processReadings(raw.previous, 'dateTime', 'Previous Month', 'Previous Month', true);
+                    // For comparison overlay, we pad labels to align both datasets
+                    // Since they're different time periods, add prev data as separate dataset with same-length arrays
+                    const maxLen = Math.max(labels.length, pp.labels.length);
+                    while (p.tempDs.data.length < maxLen) p.tempDs.data.push(null);
+                    while (pp.tempDs.data.length < maxLen) pp.tempDs.data.push(null);
+                    while (p.humDs.data.length < maxLen) p.humDs.data.push(null);
+                    while (pp.humDs.data.length < maxLen) pp.humDs.data.push(null);
+                    while (labels.length < maxLen) labels.push('');
+                    tempDatasets.push(pp.tempDs);
+                    humDatasets.push(pp.humDs);
+                }
+            }
+
+            // ── Render / Update charts ──
+            if (tempChart && humChart && _chartTheme === dark) {
+                // Fast path: only update data arrays, skip dataset object recreation
+                tempChart.data.labels = labels;
+                for (let i = 0; i < tempDatasets.length; i++) {
+                    if (tempChart.data.datasets[i]) {
+                        tempChart.data.datasets[i].data = tempDatasets[i].data;
+                    } else {
+                        tempChart.data.datasets[i] = tempDatasets[i];
+                    }
+                }
+                tempChart.data.datasets.length = tempDatasets.length;
+                tempChart.update('none');
+
+                humChart.data.labels = labels;
+                for (let i = 0; i < humDatasets.length; i++) {
+                    if (humChart.data.datasets[i]) {
+                        humChart.data.datasets[i].data = humDatasets[i].data;
+                    } else {
+                        humChart.data.datasets[i] = humDatasets[i];
+                    }
+                }
+                humChart.data.datasets.length = humDatasets.length;
+                humChart.update('none');
+                return;
+            }
+
+            if (tempChart) { tempChart.destroy(); tempChart = null; }
+            if (humChart) { humChart.destroy(); humChart = null; }
+            _chartTheme = dark;
+
+            tempChart = buildChart('tempChart', 'Temperature (°C)', tempDatasets, labels, dark, '°C');
+            humChart = buildChart('humChart', 'Humidity (%)', humDatasets, labels, dark, '%');
+        }
+
+        function updateChartTheme() {
+            _chartTheme = null;
+            updateChart();
+        }
+
+        async function updateTable() {
+            const data = await fetchAPI('all', '&limit=500');
+            const tbody = document.getElementById('tableBody');
+
+            if (!data || !data.length) {
+                tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">📡</div><p>No data yet. Waiting for ESP8266...</p></div></td></tr>`;
+                _lastTableHash = '';
+                return;
+            }
+
+            // Skip DOM update if data hasn't changed
+            const hash = data[0].id + ':' + data[0].created_at + ':' + data.length;
+            if (hash === _lastTableHash) return;
+            _lastTableHash = hash;
+
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td>${row.id}</td>
+                    <td class="td-temp">${parseFloat(row.temperature).toFixed(1)} °C</td>
+                    <td class="td-hum">${parseFloat(row.humidity).toFixed(1)} %</td>
+                    <td>${formatTime(row.created_at)}</td>
+                    <td><button class="delete-btn" onclick="deleteRecord(${row.id})" title="Delete">✕</button></td>
+                </tr>
+            `).join('');
+        }
+
+        // ── Actions ──
+        function deleteRecord(id) {
+            openModal('Delete Record', `Delete record #${id}?`, async () => {
+                const res = await fetchAPI('delete', `&id=${id}`);
+                if (res && res.success) {
+                    showToast(`Record #${id} deleted`);
+                    _lastTableHash = '';
+                    updateTable();
+                } else {
+                    showToast('Delete failed', true);
+                }
+            });
+        }
+
+        function confirmTruncate() {
+            openModal('Delete All Records', 'This will permanently delete ALL temperature readings. Continue?', async () => {
+                const res = await fetchAPI('truncate');
+                if (res && res.success) {
+                    showToast('All records deleted');
+                    _lastTableHash = '';
+                    updateTable();
+                } else {
+                    showToast('Delete failed', true);
+                }
+            });
+        }
+
+        async function exportCSV() {
+            const data = await fetchAPI('all', '&limit=5000');
+            const stats = await fetchAPI('stats');
+            if (!data || !data.length) { showToast('No data to export', true); return; }
+            await generatePDF('Temperature Reading Report', data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Timestamp'],
+                row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.created_at],
+                'temperature_reading_report');
+            showToast('Report generated');
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return '--';
+            const d = new Date(timestamp);
+            return d.toLocaleString('en-US', {
+                month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: true
+            });
+        }
+
+        // ── Gauge Drawing ──
+        function updateTempGauge(temp) {
+            try {
+                const min = 0, max = 80;
+                const clamped = Math.max(min, Math.min(max, temp));
+                const pct = (clamped - min) / (max - min);
+
+                const path = document.getElementById('tempGaugeFill');
+                // Semicircle arc length: π × r = π × 70 ≈ 219.91
+                const totalLen = 219.91;
+                path.style.strokeDasharray = totalLen;
+                path.style.strokeDashoffset = totalLen * (1 - pct);
+
+                // Color: green 18-24 (stable), orange 25-30 (warning), red >30 (critical), blue 15-17 (low)
+                if (temp > 30) path.style.stroke = '#ef4444';
+                else if (temp >= 25) path.style.stroke = '#f97316';
+                else if (temp >= 18) path.style.stroke = '#22c55e';
+                else path.style.stroke = '#3b82f6';
+
+                document.getElementById('tempGaugeValue').innerHTML = `${temp.toFixed(1)}<span>°C</span>`;
+            } catch (e) { console.error('Temp gauge error:', e); }
+        }
+
+        function updateHumGauge(hum) {
+            try {
+                const clamped = Math.max(0, Math.min(100, hum));
+                const pct = clamped / 100;
+
+                const circle = document.getElementById('humGaugeFill');
+                // Circle circumference: 2πr = 2π × 58 ≈ 364.42
+                const circumference = 364.42;
+                circle.style.strokeDasharray = circumference;
+                circle.style.strokeDashoffset = circumference * (1 - pct);
+
+                document.getElementById('humGaugeValue').innerHTML = `${Math.round(hum)}<span>%</span>`;
+            } catch (e) { console.error('Hum gauge error:', e); }
+        }
+
+        // ── Status Tables (Stable / Warning / Critical / Low) ──
+        const statusConfig = {
+            stable: { api: 'stable', tbody: 'stableTableBody', count: 'stableCount', icon: '✅', color: 'var(--accent-green)', label: 'Stable', emptyIcon: '✅', emptyMsg: 'No stable readings yet.' },
+            warning: { api: 'warning', tbody: 'warningTableBody', count: 'warningCount', icon: '⚠️', color: '#eab308', label: 'Warning', emptyIcon: '⚠️', emptyMsg: 'No warning readings yet.' },
+            critical: { api: 'critical', tbody: 'criticalTableBody', count: 'criticalCount', icon: '🚨', color: 'var(--accent-red)', label: 'Critical', emptyIcon: '🚨', emptyMsg: 'No critical readings yet.' },
+            low: { api: 'low', tbody: 'lowTableBody', count: 'lowCount', icon: '🔵', color: 'var(--accent-blue)', label: 'Low', emptyIcon: '🔵', emptyMsg: 'No low readings yet.' }
+        };
+
+        const _statusTableHash = {};
+        async function updateStatusTable(type) {
+            const cfg = statusConfig[type];
+            if (!cfg) return;
+            const data = await fetchAPI(cfg.api, '&limit=500');
+            const tbody = document.getElementById(cfg.tbody);
+            const countBadge = document.getElementById(cfg.count);
+
+            if (!data || !data.length) {
+                tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">${cfg.emptyIcon}</div><p>${cfg.emptyMsg}</p></div></td></tr>`;
+                countBadge.textContent = '0';
+                _statusTableHash[type] = '';
+                return;
+            }
+
+            // Skip DOM update if data hasn't changed
+            const hash = data[0].id + ':' + data[0].created_at + ':' + data.length;
+            if (hash === _statusTableHash[type]) return;
+            _statusTableHash[type] = hash;
+
+            countBadge.textContent = data.length;
+
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td>${row.id}</td>
+                    <td class="td-temp">${parseFloat(row.temperature).toFixed(1)} °C</td>
+                    <td class="td-hum">${parseFloat(row.humidity).toFixed(1)} %</td>
+                    <td style="color:${cfg.color}; font-weight:600;">${cfg.icon} ${row.status}</td>
+                    <td>${formatTime(row.created_at)}</td>
+                    <td><button class="delete-btn" onclick="deleteStatusRecord(${row.id}, '${type}')" title="Delete">✕</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStableTable() { return updateStatusTable('stable'); }
+        function updateWarningTable() { return updateStatusTable('warning'); }
+        function updateCriticalTable() { return updateStatusTable('critical'); }
+        function updateLowTable() { return updateStatusTable('low'); }
+
+        function deleteStatusRecord(id, type) {
+            const cfg = statusConfig[type];
+            openModal(`Delete ${cfg.label} Record`, `Delete ${cfg.label.toLowerCase()} record #${id}?`, async () => {
+                const res = await fetchAPI(`delete_${type}`, `&id=${id}`);
+                if (res && res.success) {
+                    showToast(`${cfg.label} record #${id} deleted`);
+                    _statusTableHash[type] = '';
+                    updateStatusTable(type);
+                } else {
+                    showToast('Delete failed', true);
+                }
+            });
+        }
+
+        function confirmTruncateStatus(type) {
+            const cfg = statusConfig[type];
+            openModal(`Delete All ${cfg.label} Readings`, `This will permanently delete ALL ${cfg.label.toLowerCase()} readings. Continue?`, async () => {
+                const res = await fetchAPI(`truncate_${type}`);
+                if (res && res.success) {
+                    showToast(`All ${cfg.label.toLowerCase()} readings deleted`);
+                    _statusTableHash[type] = '';
+                    updateStatusTable(type);
+                } else {
+                    showToast('Delete failed', true);
+                }
+            });
+        }
+
+        async function exportStatusReport(type) {
+            const cfg = statusConfig[type];
+            const data = await fetchAPI(cfg.api, '&limit=5000');
+            const stats = await fetchAPI(`${cfg.api}_stats`);
+            if (!data || !data.length) { showToast(`No ${cfg.label.toLowerCase()} readings to export`, true); return; }
+            await generatePDF(`${cfg.label} Readings Report`, data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Status', 'Timestamp'],
+                row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.created_at],
+                `${type}_readings_report`, true);
+            showToast(`${cfg.label} report generated`);
+        }
+
+        // ── PDF Report Generator ──
+        async function generatePDF(title, data, stats, columns, rowMapper, filename, isAlert = false) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const margin = 16;
+
+            // ── Colors ──
+            const navy = [12, 35, 64];
+            const blue = [37, 99, 175];
+            const lightBlue = [59, 130, 246];
+            const skyBg = [239, 246, 255];
+            const gold = [234, 179, 8];
+            const white = [255, 255, 255];
+            const gray = [100, 116, 139];
+            const darkText = [30, 41, 59];
+
+            // ── Helper: Load header image as base64 ──
+            async function loadHeaderImage() {
+                try {
+                    const resp = await fetch('header.jpg');
+                    const blob = await resp.blob();
+                    return new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) {
+                    console.warn('Could not load header.jpg:', e);
+                    return null;
+                }
+            }
+
+            // ── Helper: Page Footer ──
+            function drawFooter(pageNum, totalPages) {
+                // Footer line
+                doc.setDrawColor(...blue);
+                doc.setLineWidth(0.5);
+                doc.line(margin, pageH - 16, pageW - margin, pageH - 16);
+                // Gold accent dot
+                doc.setFillColor(...gold);
+                doc.circle(pageW / 2, pageH - 16, 1, 'F');
+                // Footer text
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(...gray);
+                doc.text('Sulu State College  •  Department of Transformation Office', margin, pageH - 10);
+                doc.text('IoT-Based Temperature Monitoring System for SSC Data Center  •  Confidential', margin, pageH - 6);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(...blue);
+                doc.text(`Page ${pageNum} of ${totalPages}`, pageW - margin, pageH - 8, { align: 'right' });
+            }
+
+            // ══════════════════════════════════════
+            // ── PAGE 1: HEADER (SSC Banner Image)
+            // ══════════════════════════════════════
+
+            const headerImg = await loadHeaderImage();
+            const headerH = 50;
+            if (headerImg) {
+                // Draw the actual SSC banner image across full width
+                doc.addImage(headerImg, 'JPEG', 0, 0, pageW, headerH);
+            } else {
+                // Fallback: draw a simple header if image fails to load
+                doc.setFillColor(...navy);
+                doc.rect(0, 0, pageW, headerH, 'F');
+                doc.setFillColor(...gold);
+                doc.rect(0, 0, pageW, 1.5, 'F');
+                doc.rect(0, headerH - 1.5, pageW, 1.5, 'F');
+                const centerX = pageW / 2;
+                doc.setTextColor(...gold);
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'italic');
+                doc.text('Republic of the Philippines', centerX, 12, { align: 'center' });
+                doc.setTextColor(200, 220, 255);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bolditalic');
+                doc.text('Commission on Higher Education', centerX, 18, { align: 'center' });
+                doc.setTextColor(...white);
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('SULU STATE COLLEGE', centerX, 29, { align: 'center' });
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(180, 210, 255);
+                doc.text('Capitol Site, Jolo, Sulu', centerX, 36, { align: 'center' });
+            }
+
+            // Sub-header bar: DTO + Project Title + Official Report badge
+            const subH = 18;
+            const subY = headerH;
+            doc.setFillColor(...navy);
+            doc.rect(0, subY, pageW, subH, 'F');
+
+            // Department & Project title (left-aligned)
+            doc.setTextColor(...white);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Department of Transformation Office  \u2022  Data Center', margin + 4, subY + 7);
+
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(180, 210, 255);
+            doc.text('IoT-Based Temperature Monitoring System for SSC Data Center', margin + 4, subY + 13);
+
+            // Official Report badge (right side)
+            const badgeW = 52;
+            const badgeH = 12;
+            const badgeX = pageW - margin - badgeW;
+            const badgeY = subY + (subH - badgeH) / 2;
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(255, 255, 255);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2, 2, 'FD');
+            doc.setTextColor(...navy);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text('OFFICIAL REPORT', badgeX + badgeW / 2, badgeY + 4.5, { align: 'center' });
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...gray);
+            doc.text(dateStr, badgeX + badgeW / 2, badgeY + 9, { align: 'center' });
+
+            // ── Report Title Section ──
+            let y = headerH + subH + 8;
+
+            // Title with left accent bar
+            doc.setFillColor(...lightBlue);
+            doc.roundedRect(margin, y, 4, 14, 1, 1, 'F');
+
+            doc.setTextColor(...navy);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title.toUpperCase(), margin + 10, y + 6);
+
+            doc.setTextColor(...gray);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Generated on ${dateStr} at ${timeStr}`, margin + 10, y + 12);
+
+            y += 20;
+
+            // ── Statistics Cards ──
+            const cardW = (pageW - margin * 2 - 9) / 4;
+            const cardH = 24;
+
+            let statBoxes;
+            if (isAlert) {
+                statBoxes = [
+                    { label: 'TOTAL ALERTS', value: stats.total_alerts || '0', accent: [239, 68, 68], icon: '!' },
+                    { label: 'HIGH ALERTS', value: stats.high_alerts || '0', accent: [249, 115, 22], icon: '▲' },
+                    { label: 'LOW ALERTS', value: stats.low_alerts || '0', accent: [59, 130, 246], icon: '▼' },
+                    { label: 'RECORDS', value: String(data.length), accent: [34, 197, 94], icon: '#' }
+                ];
+            } else {
+                statBoxes = [
+                    { label: 'TOTAL RECORDS', value: stats.total_records || '0', accent: [37, 99, 175], icon: '#' },
+                    { label: 'AVG TEMP', value: (stats.avg_temp || '--') + '°C', accent: [249, 115, 22], icon: '~' },
+                    { label: 'AVG HUMIDITY', value: (stats.avg_hum || '--') + '%', accent: [6, 182, 212], icon: '%' },
+                    { label: 'MAX TEMP', value: (stats.max_temp || '--') + '°C', accent: [239, 68, 68], icon: '↑' }
+                ];
+            }
+
+            statBoxes.forEach((box, i) => {
+                const x = margin + i * (cardW + 3);
+
+                // Card background with subtle border
+                doc.setFillColor(...skyBg);
+                doc.setDrawColor(220, 230, 245);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(x, y, cardW, cardH, 2.5, 2.5, 'FD');
+
+                // Top accent bar
+                doc.setFillColor(...box.accent);
+                doc.roundedRect(x + 4, y, cardW - 8, 2, 1, 1, 'F');
+
+                // Icon circle
+                doc.setFillColor(...box.accent);
+                doc.circle(x + cardW - 8, y + 10, 3.5, 'F');
+                doc.setTextColor(...white);
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'bold');
+                doc.text(box.icon, x + cardW - 8, y + 11.3, { align: 'center' });
+
+                // Value
+                doc.setTextColor(...darkText);
+                doc.setFontSize(15);
+                doc.setFont('helvetica', 'bold');
+                doc.text(String(box.value), x + 6, y + 12.5);
+
+                // Label
+                doc.setTextColor(...gray);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(box.label, x + 6, y + 19);
+            });
+
+            y += cardH + 6;
+
+            // ── Report Info Bar ──
+            doc.setFillColor(...navy);
+            doc.roundedRect(margin, y, pageW - margin * 2, 10, 1.5, 1.5, 'F');
+            doc.setFillColor(...gold);
+            doc.rect(margin, y, 3, 10, 'F');
+
+            doc.setTextColor(...white);
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text('REPORT DETAILS', margin + 8, y + 4.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(180, 210, 255);
+            doc.text(`Total Records: ${data.length}   |   Date: ${dateStr}   |   Time: ${timeStr}   |   Type: ${isAlert ? 'Status Readings' : 'Temperature Reading'}`, margin + 8, y + 8.5);
+
+            y += 14;
+
+            // ── Data Table ──
+            const tableRows = data.map(rowMapper);
+
+            doc.autoTable({
+                startY: y,
+                head: [columns],
+                body: tableRows,
+                margin: { left: margin, right: margin, bottom: 22 },
+                styles: {
+                    fontSize: 7.5,
+                    cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+                    lineColor: [210, 225, 245],
+                    lineWidth: 0.15,
+                    font: 'helvetica',
+                },
+                headStyles: {
+                    fillColor: [...navy],
+                    textColor: [...white],
+                    fontStyle: 'bold',
+                    fontSize: 7.5,
+                    cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 249, 255],
+                },
+                bodyStyles: {
+                    textColor: [...darkText],
+                },
+                columnStyles: {
+                    0: { cellWidth: 14, halign: 'center' },
+                },
+                didDrawPage: function () {
+                    // Placeholder — footers drawn after total pages known
+                }
+            });
+
+            // ── End of Report Block ──
+            const finalY = doc.lastAutoTable.finalY + 6;
+            if (finalY < pageH - 40) {
+                // Decorative end section
+                const endW = pageW - margin * 2;
+                const endH = 24;
+                doc.setFillColor(...skyBg);
+                doc.setDrawColor(200, 215, 240);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(margin, finalY, endW, endH, 3, 3, 'FD');
+
+                // Gold diamond accent
+                const cx = pageW / 2;
+                const dy = finalY + 5;
+                doc.setFillColor(...gold);
+                doc.triangle(cx - 3, dy, cx, dy - 3, cx + 3, dy, 'F');
+                doc.triangle(cx - 3, dy, cx, dy + 3, cx + 3, dy, 'F');
+
+                doc.setTextColor(...navy);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text('END OF REPORT', cx, finalY + 13, { align: 'center' });
+
+                doc.setTextColor(...gray);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`This report contains ${data.length} record(s) and was auto-generated on ${dateStr} at ${timeStr}.`, cx, finalY + 18, { align: 'center' });
+                doc.text('Sulu State College  •  Department of Transformation Office  •  Data Center Division', cx, finalY + 22, { align: 'center' });
+            }
+
+            // ── Draw Footers on All Pages ──
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let p = 1; p <= totalPages; p++) {
+                doc.setPage(p);
+                drawFooter(p, totalPages);
+            }
+
+            doc.save(`${filename}_${now.toISOString().slice(0, 10)}.pdf`);
+        }
+
+        // ── Auto Monthly Report Generator ──
+        // Checks periodically if month has ended, then auto-triggers the Generate Report button logic
+        let _lastAutoReportCheck = null;
+
+        async function checkMonthlyReport() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const day = now.getDate();
+            const lastDay = new Date(year, month + 1, 0).getDate();
+
+            const isEndOfMonth = day === lastDay;
+            const isFirstOfMonth = day === 1;
+
+            if (!isEndOfMonth && !isFirstOfMonth) return;
+
+            // Determine which month to report
+            let reportYear, reportMonth;
+            if (isFirstOfMonth) {
+                const prev = new Date(year, month - 1, 1);
+                reportYear = prev.getFullYear();
+                reportMonth = prev.getMonth();
+            } else {
+                reportYear = year;
+                reportMonth = month;
+            }
+
+            const reportKey = `monthlyReport_${reportYear}_${reportMonth}`;
+            if (localStorage.getItem(reportKey)) return;
+
+            // Wait for data to load first
+            await new Promise(r => setTimeout(r, 3000));
+
+            const monthName = new Date(reportYear, reportMonth).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            showToast(`Auto-generating monthly report for ${monthName}...`);
+
+            try {
+                // Reuse the same Generate Report button logic (exportCSV)
+                await exportCSV();
+                localStorage.setItem(reportKey, new Date().toISOString());
+                showToast(`Monthly report for ${monthName} auto-generated!`);
+            } catch (e) {
+                console.error('Monthly report error:', e);
+                showToast('Monthly report auto-generation failed', true);
+            }
+        }
+
+        // Check every 60 seconds if month-end report is due
+        setInterval(checkMonthlyReport, 60000);
+
+        // ── Refresh All ──
+        async function refreshData() {
+            if (_refreshing) return; // Prevent overlapping refresh cycles
+            _refreshing = true;
+            try {
+                _latestCache = null;
+                _refreshCycle++;
+                // Run updateStats first to determine online/offline, then updateLatest respects it
+                await updateStats();
+                const tasks = [updateLatest(), updateChart()];
+                // Only refresh tables every 3rd cycle to reduce API calls
+                if (_refreshCycle % 3 === 1) {
+                    tasks.push(updateTable(), updateStableTable(), updateWarningTable(), updateCriticalTable(), updateLowTable());
+                }
+                await Promise.all(tasks);
+            } finally {
+                _refreshing = false;
+            }
+        }
+
+        // ── Live Clock ──
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('dtDate').textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            document.getElementById('dtDay').textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
+            document.getElementById('dtTime').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ── Init ──
+        document.getElementById('chartDatePicker').value = localDateStr(new Date());
+        refreshData();
+        refreshInterval = setInterval(refreshData, 5000);
+        checkMonthlyReport(); // Auto-generate end-of-month reports
+    </script>
+</body>
+
+</html>
