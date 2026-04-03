@@ -2019,9 +2019,7 @@
         let refreshInterval;
         let deviceOnline = false;
         let _latestCache = null;
-        let _refreshCycle = 0;
         let _refreshing = false;
-        let _lastDataHash = '';
         let _lastTableHash = '';
 
         // ── Theme Toggle ──
@@ -3062,16 +3060,36 @@
         setInterval(checkMonthlyReport, 60000);
 
         // ── Refresh All ──
+        let _lastLatestId = null;
+        let _fullRefreshNeeded = true; // Force first load
+
         async function refreshData() {
-            if (_refreshing) return; // Prevent overlapping refresh cycles
+            if (_refreshing) return;
             _refreshing = true;
             try {
+                // Step 1: Quick poll — only fetch latest + stats (2 API calls)
                 _latestCache = null;
-                _refreshCycle++;
-                // Run updateStats first to determine online/offline, then updateLatest respects it
-                await updateStats();
-                const tasks = [updateLatest(), updateChart(), updateTable(), updateStableTable(), updateWarningTable(), updateCriticalTable(), updateLowTable()];
-                await Promise.all(tasks);
+                await updateStats();  // Sets deviceOnline, caches latest
+                await updateLatest(); // Uses cache, updates gauges/banner
+
+                // Step 2: Detect if new data arrived
+                const currentId = _latestCache ? _latestCache.id : null;
+                const hasNewData = currentId !== _lastLatestId;
+                _lastLatestId = currentId;
+
+                // Step 3: Only refresh chart + tables when new data exists or first load
+                if (hasNewData || _fullRefreshNeeded) {
+                    _fullRefreshNeeded = false;
+                    _lastTableHash = '';
+                    await Promise.all([
+                        updateChart(),
+                        updateTable(),
+                        updateStableTable(),
+                        updateWarningTable(),
+                        updateCriticalTable(),
+                        updateLowTable()
+                    ]);
+                }
             } finally {
                 _refreshing = false;
             }
@@ -3090,7 +3108,7 @@
         // ── Init ──
         document.getElementById('chartDatePicker').value = localDateStr(new Date());
         refreshData();
-        refreshInterval = setInterval(refreshData, 5000);
+        refreshInterval = setInterval(refreshData, 3000); // 3s — lightweight poll, only fetches chart+tables when new data arrives
         checkMonthlyReport(); // Auto-generate end-of-month reports
     </script>
 </body>

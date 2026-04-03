@@ -23,14 +23,19 @@ switch ($action) {
             }
         }
         // Attach device status from heartbeat table
-        $ds = $pdo->query("SELECT status, last_seen FROM device_status WHERE id = 1")->fetch();
         $result = $row ?: ["temperature" => null, "humidity" => null];
-        if ($ds) {
-            $lastSeen = strtotime($ds['last_seen']);
-            $now = time();
-            $result['device_online'] = ($ds['status'] === 'online' && ($now - $lastSeen) <= 30);
-            $result['device_last_seen'] = substr($ds['last_seen'], 0, 19);
-        } else {
+        try {
+            $ds = $pdo->query("SELECT status, last_seen FROM device_status WHERE id = 1")->fetch();
+            if ($ds) {
+                $lastSeen = strtotime($ds['last_seen']);
+                $now = time();
+                $result['device_online'] = ($ds['status'] === 'online' && ($now - $lastSeen) <= 30);
+                $result['device_last_seen'] = substr($ds['last_seen'], 0, 19);
+            } else {
+                $result['device_online'] = false;
+                $result['device_last_seen'] = null;
+            }
+        } catch (Exception $e) {
             $result['device_online'] = false;
             $result['device_last_seen'] = null;
         }
@@ -40,17 +45,25 @@ switch ($action) {
 
     // Get device status (heartbeat-based)
     case 'device_status':
-        $ds = $pdo->query("SELECT status, last_seen FROM device_status WHERE id = 1")->fetch();
-        if ($ds) {
-            $lastSeen = strtotime($ds['last_seen']);
-            $now = time();
-            $online = ($ds['status'] === 'online' && ($now - $lastSeen) <= 30);
-            echo json_encode([
-                'device_online' => $online,
-                'last_seen' => substr($ds['last_seen'], 0, 19),
-                'server_time' => date('Y-m-d H:i:s')
-            ]);
-        } else {
+        try {
+            $ds = $pdo->query("SELECT status, last_seen FROM device_status WHERE id = 1")->fetch();
+            if ($ds) {
+                $lastSeen = strtotime($ds['last_seen']);
+                $now = time();
+                $online = ($ds['status'] === 'online' && ($now - $lastSeen) <= 30);
+                echo json_encode([
+                    'device_online' => $online,
+                    'last_seen' => substr($ds['last_seen'], 0, 19),
+                    'server_time' => date('Y-m-d H:i:s')
+                ]);
+            } else {
+                echo json_encode([
+                    'device_online' => false,
+                    'last_seen' => null,
+                    'server_time' => date('Y-m-d H:i:s')
+                ]);
+            }
+        } catch (Exception $e) {
             echo json_encode([
                 'device_online' => false,
                 'last_seen' => null,

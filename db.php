@@ -77,8 +77,7 @@ function initTables($pdo) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS device_status (
             id INTEGER PRIMARY KEY DEFAULT 1,
             status VARCHAR(10) NOT NULL DEFAULT 'online',
-            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT single_row CHECK (id = 1)
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )");
     } else {
         $pdo->exec("CREATE TABLE IF NOT EXISTS temperature_reading (
@@ -118,8 +117,7 @@ function initTables($pdo) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS device_status (
             id INT PRIMARY KEY DEFAULT 1,
             status VARCHAR(10) NOT NULL DEFAULT 'online',
-            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            CHECK (id = 1)
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )");
     }
 }
