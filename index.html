@@ -2021,6 +2021,7 @@
         let _latestCache = null;
         let _refreshing = false;
         let _lastTableHash = '';
+        let _failedPolls = 0; // Track consecutive API failures
 
         // ── Theme Toggle ──
         function initTheme() {
@@ -2173,14 +2174,19 @@
         async function updateStats() {
             const [stats, latest] = await Promise.all([fetchAPI('stats'), fetchAPI('latest')]);
 
-            // If API calls fail, mark device offline immediately
+            // If API calls fail, only mark offline after 3 consecutive failures
+            // (prevents flickering from Render cold starts / slow responses)
             if (!stats || !latest) {
-                deviceOnline = false;
-                const statusEl = document.getElementById('deviceStatus');
-                statusEl.innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
-                resetOfflineUI();
+                _failedPolls++;
+                if (_failedPolls >= 3) {
+                    deviceOnline = false;
+                    const statusEl = document.getElementById('deviceStatus');
+                    statusEl.innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
+                    resetOfflineUI();
+                }
                 return;
             }
+            _failedPolls = 0; // Reset on success
 
             document.getElementById('avgTemp').innerHTML = `${stats.avg_temp || '--'}<span class="stat-unit"> °C</span>`;
             document.getElementById('avgHum').textContent = `Avg Humidity: ${stats.avg_hum || '--'}%`;
@@ -2191,7 +2197,16 @@
             const statusEl = document.getElementById('deviceStatus');
 
             // Device status from heartbeat table (independent of temperature data)
-            const isOnline = !!latest.device_online;
+            // Fallback to timestamp-based check if device_online field is missing
+            let isOnline;
+            if (typeof latest.device_online !== 'undefined') {
+                isOnline = !!latest.device_online;
+            } else if (latest.created_at && latest.server_time) {
+                const diffSec = Math.floor((new Date(latest.server_time) - new Date(latest.created_at)) / 1000);
+                isOnline = diffSec <= 30;
+            } else {
+                isOnline = false;
+            }
             const indicator = isOnline ? 'online' : 'offline';
             const label = isOnline ? 'Online' : 'Offline';
             const labelClass = isOnline ? 'status-online' : 'status-offline';
