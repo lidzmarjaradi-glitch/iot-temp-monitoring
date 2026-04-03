@@ -10,9 +10,12 @@ function getDB() {
     $databaseUrl = getenv('DATABASE_URL');
 
     if ($databaseUrl) {
-        // Render PostgreSQL: postgres://user:pass@host:port/dbname
+        // Render PostgreSQL: postgres://user:pass@host[:port]/dbname
         $params = parse_url($databaseUrl);
-        $dsn = "pgsql:host={$params['host']};port={$params['port']};dbname=" . ltrim($params['path'], '/');
+        $host = $params['host'];
+        $port = isset($params['port']) ? $params['port'] : 5432;
+        $dbname = ltrim($params['path'], '/');
+        $dsn = "pgsql:host={$host};port={$port};dbname={$dbname}";
         $pdo = new PDO($dsn, $params['user'], $params['pass'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
