@@ -12,6 +12,57 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 switch ($action) {
 
+    // ── Combined dashboard endpoint (single call for all live data) ──
+    case 'dashboard':
+        $result = ['server_time' => date('Y-m-d H:i:s')];
+
+        // Latest reading
+        $row = $pdo->query("SELECT * FROM temperature_reading ORDER BY id DESC LIMIT 1")->fetch();
+        if ($row && isset($row['created_at']) && strlen($row['created_at']) > 19) {
+            $row['created_at'] = substr($row['created_at'], 0, 19);
+        }
+        $result['latest'] = $row ?: null;
+
+        // Stats
+        if (isPostgres()) {
+            $result['stats'] = $pdo->query("SELECT 
+                COUNT(*) as total_records,
+                ROUND(AVG(temperature)::numeric, 1) as avg_temp,
+                ROUND(MIN(temperature)::numeric, 1) as min_temp,
+                ROUND(MAX(temperature)::numeric, 1) as max_temp,
+                ROUND(AVG(humidity)::numeric, 1) as avg_hum,
+                ROUND(MIN(humidity)::numeric, 1) as min_hum,
+                ROUND(MAX(humidity)::numeric, 1) as max_hum
+                FROM temperature_reading")->fetch();
+        } else {
+            $result['stats'] = $pdo->query("SELECT 
+                COUNT(*) as total_records,
+                ROUND(AVG(temperature), 1) as avg_temp,
+                ROUND(MIN(temperature), 1) as min_temp,
+                ROUND(MAX(temperature), 1) as max_temp,
+                ROUND(AVG(humidity), 1) as avg_hum,
+                ROUND(MIN(humidity), 1) as min_hum,
+                ROUND(MAX(humidity), 1) as max_hum
+                FROM temperature_reading")->fetch();
+        }
+
+        // Device status
+        try {
+            $ds = $pdo->query("SELECT status, last_seen FROM device_status WHERE id = 1")->fetch();
+            if ($ds) {
+                $lastSeen = strtotime($ds['last_seen']);
+                $result['device_online'] = ($ds['status'] === 'online' && (time() - $lastSeen) <= 30);
+                $result['device_last_seen'] = substr($ds['last_seen'], 0, 19);
+            } else {
+                $result['device_online'] = false;
+            }
+        } catch (Exception $e) {
+            $result['device_online'] = false;
+        }
+
+        echo json_encode($result);
+        break;
+
     // Get latest reading
     case 'latest':
         $row = $pdo->query("SELECT * FROM temperature_reading ORDER BY id DESC LIMIT 1")->fetch();

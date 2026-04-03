@@ -2021,7 +2021,9 @@
         let _latestCache = null;
         let _refreshing = false;
         let _lastTableHash = '';
-        let _failedPolls = 0; // Track consecutive API failures
+        let _failedPolls = 0;
+        let _lastLatestId = null;
+        let _fullRefreshNeeded = true;
 
         // ── Theme Toggle ──
         function initTheme() {
@@ -2104,8 +2106,7 @@
         }
 
         // ── Update Dashboard ──
-        async function updateLatest() {
-            const data = _latestCache || await fetchAPI('latest');
+        function applyLatestUI(data) {
             if (!data || !data.temperature || !deviceOnline) return;
 
             const temp = parseFloat(data.temperature);
@@ -2171,58 +2172,73 @@
             actionLabel.textContent = actLabel;
         }
 
-        async function updateStats() {
-            const [stats, latest] = await Promise.all([fetchAPI('stats'), fetchAPI('latest')]);
+        // ── Single Dashboard Poll ──
+        async function refreshData() {
+            if (_refreshing) return;
+            _refreshing = true;
+            try {
+                // ONE API call for everything
+                const d = await fetchAPI('dashboard');
 
-            // If API calls fail, only mark offline after 3 consecutive failures
-            // (prevents flickering from Render cold starts / slow responses)
-            if (!stats || !latest) {
-                _failedPolls++;
-                if (_failedPolls >= 3) {
-                    deviceOnline = false;
-                    const statusEl = document.getElementById('deviceStatus');
-                    statusEl.innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
+                if (!d) {
+                    _failedPolls++;
+                    if (_failedPolls >= 3) {
+                        deviceOnline = false;
+                        document.getElementById('deviceStatus').innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
+                        resetOfflineUI();
+                    }
+                    return;
+                }
+                _failedPolls = 0;
+
+                // Device status
+                const isOnline = !!d.device_online;
+                const statusEl = document.getElementById('deviceStatus');
+                statusEl.innerHTML = `<span class="status-indicator ${isOnline ? 'online' : 'offline'}"></span><span class="${isOnline ? 'status-online' : 'status-offline'}">${isOnline ? 'Online' : 'Offline'}</span>`;
+                deviceOnline = isOnline;
+
+                // Stats
+                const stats = d.stats;
+                if (stats) {
+                    document.getElementById('avgTemp').innerHTML = `${stats.avg_temp || '--'}<span class="stat-unit"> °C</span>`;
+                    document.getElementById('avgHum').textContent = `Avg Humidity: ${stats.avg_hum || '--'}%`;
+                    document.getElementById('tempRange').textContent = `Min: ${stats.min_temp || '--'} / Max: ${stats.max_temp || '--'}`;
+                    document.getElementById('humRange').textContent = `Min: ${stats.min_hum || '--'} / Max: ${stats.max_hum || '--'}`;
+                }
+
+                // Latest reading → gauges + banner
+                _latestCache = d.latest;
+                if (isOnline && d.latest) {
+                    applyLatestUI(d.latest);
+                } else if (!isOnline) {
+                    updateTempGauge(0);
+                    updateHumGauge(0);
+                    document.getElementById('tempGaugeValue').innerHTML = `--<span>°C</span>`;
+                    document.getElementById('humGaugeValue').innerHTML = `--<span>%</span>`;
+                    document.getElementById('currentTemp').innerHTML = `--<span class="stat-unit"> °C</span>`;
+                    document.getElementById('currentHum').innerHTML = `--<span class="stat-unit"> %</span>`;
                     resetOfflineUI();
                 }
-                return;
-            }
-            _failedPolls = 0; // Reset on success
 
-            document.getElementById('avgTemp').innerHTML = `${stats.avg_temp || '--'}<span class="stat-unit"> °C</span>`;
-            document.getElementById('avgHum').textContent = `Avg Humidity: ${stats.avg_hum || '--'}%`;
-            document.getElementById('tempRange').textContent = `Min: ${stats.min_temp || '--'} / Max: ${stats.max_temp || '--'}`;
-            document.getElementById('humRange').textContent = `Min: ${stats.min_hum || '--'} / Max: ${stats.max_hum || '--'}`;
+                // Chart + tables only when new data or first load
+                const currentId = d.latest ? d.latest.id : null;
+                const hasNewData = currentId !== _lastLatestId;
+                _lastLatestId = currentId;
 
-            _latestCache = latest; // Cache for updateLatest() to reuse
-            const statusEl = document.getElementById('deviceStatus');
-
-            // Device status from heartbeat table (independent of temperature data)
-            // Fallback to timestamp-based check if device_online field is missing
-            let isOnline;
-            if (typeof latest.device_online !== 'undefined') {
-                isOnline = !!latest.device_online;
-            } else if (latest.created_at && latest.server_time) {
-                const diffSec = Math.floor((new Date(latest.server_time) - new Date(latest.created_at)) / 1000);
-                isOnline = diffSec <= 30;
-            } else {
-                isOnline = false;
-            }
-            const indicator = isOnline ? 'online' : 'offline';
-            const label = isOnline ? 'Online' : 'Offline';
-            const labelClass = isOnline ? 'status-online' : 'status-offline';
-
-            statusEl.innerHTML = `<span class="status-indicator ${indicator}"></span><span class="${labelClass}">${label}</span>`;
-            deviceOnline = isOnline;
-
-            // Reset gauges and status cards when offline
-            if (!isOnline) {
-                updateTempGauge(0);
-                updateHumGauge(0);
-                document.getElementById('tempGaugeValue').innerHTML = `--<span>°C</span>`;
-                document.getElementById('humGaugeValue').innerHTML = `--<span>%</span>`;
-                document.getElementById('currentTemp').innerHTML = `--<span class="stat-unit"> °C</span>`;
-                document.getElementById('currentHum').innerHTML = `--<span class="stat-unit"> %</span>`;
-                resetOfflineUI();
+                if (hasNewData || _fullRefreshNeeded) {
+                    _fullRefreshNeeded = false;
+                    _lastTableHash = '';
+                    await Promise.all([
+                        updateChart(),
+                        updateTable(),
+                        updateStableTable(),
+                        updateWarningTable(),
+                        updateCriticalTable(),
+                        updateLowTable()
+                    ]);
+                }
+            } finally {
+                _refreshing = false;
             }
         }
 
@@ -3073,42 +3089,6 @@
 
         // Check every 60 seconds if month-end report is due
         setInterval(checkMonthlyReport, 60000);
-
-        // ── Refresh All ──
-        let _lastLatestId = null;
-        let _fullRefreshNeeded = true; // Force first load
-
-        async function refreshData() {
-            if (_refreshing) return;
-            _refreshing = true;
-            try {
-                // Step 1: Quick poll — only fetch latest + stats (2 API calls)
-                _latestCache = null;
-                await updateStats();  // Sets deviceOnline, caches latest
-                await updateLatest(); // Uses cache, updates gauges/banner
-
-                // Step 2: Detect if new data arrived
-                const currentId = _latestCache ? _latestCache.id : null;
-                const hasNewData = currentId !== _lastLatestId;
-                _lastLatestId = currentId;
-
-                // Step 3: Only refresh chart + tables when new data exists or first load
-                if (hasNewData || _fullRefreshNeeded) {
-                    _fullRefreshNeeded = false;
-                    _lastTableHash = '';
-                    await Promise.all([
-                        updateChart(),
-                        updateTable(),
-                        updateStableTable(),
-                        updateWarningTable(),
-                        updateCriticalTable(),
-                        updateLowTable()
-                    ]);
-                }
-            } finally {
-                _refreshing = false;
-            }
-        }
 
         // ── Live Clock ──
         function updateClock() {
