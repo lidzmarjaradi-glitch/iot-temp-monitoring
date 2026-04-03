@@ -3070,11 +3070,7 @@
                 _refreshCycle++;
                 // Run updateStats first to determine online/offline, then updateLatest respects it
                 await updateStats();
-                const tasks = [updateLatest(), updateChart()];
-                // Only refresh tables every 3rd cycle to reduce API calls
-                if (_refreshCycle % 3 === 1) {
-                    tasks.push(updateTable(), updateStableTable(), updateWarningTable(), updateCriticalTable(), updateLowTable());
-                }
+                const tasks = [updateLatest(), updateChart(), updateTable(), updateStableTable(), updateWarningTable(), updateCriticalTable(), updateLowTable()];
                 await Promise.all(tasks);
             } finally {
                 _refreshing = false;
