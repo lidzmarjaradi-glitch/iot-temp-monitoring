@@ -64,7 +64,7 @@ void sendToDatabase(float temperature, float humidity)
     // Production: HTTPS to remote server
     BearSSL::WiFiClientSecure client;
     client.setInsecure();
-    String url = "https://iot.sulusc.online/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
+    String url = "https://iot-temp-monitoring-iq6o.onrender.com/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
     http.begin(client, url);
 #endif
 

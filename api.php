@@ -17,6 +17,10 @@ switch ($action) {
         $row = $pdo->query("SELECT * FROM temperature_reading ORDER BY id DESC LIMIT 1")->fetch();
         if ($row) {
             $row['server_time'] = date('Y-m-d H:i:s');
+            // Normalize PostgreSQL timestamp (strips microseconds)
+            if (isset($row['created_at']) && strlen($row['created_at']) > 19) {
+                $row['created_at'] = substr($row['created_at'], 0, 19);
+            }
         }
         echo json_encode($row ?: ["temperature" => null, "humidity" => null]);
         break;
