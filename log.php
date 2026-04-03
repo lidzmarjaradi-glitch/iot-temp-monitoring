@@ -17,6 +17,15 @@ if (isset($_GET['temp']) && isset($_GET['hum'])) {
         echo "Error inserting data";
     }
 
+    // Update device heartbeat
+    if (isPostgres()) {
+        $pdo->exec("INSERT INTO device_status (id, status, last_seen) VALUES (1, 'online', CURRENT_TIMESTAMP)
+            ON CONFLICT (id) DO UPDATE SET status = 'online', last_seen = CURRENT_TIMESTAMP");
+    } else {
+        $pdo->exec("INSERT INTO device_status (id, status, last_seen) VALUES (1, 'online', CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE status = 'online', last_seen = CURRENT_TIMESTAMP");
+    }
+
     // Route to appropriate status table based on temperature
     if ($temperature >= 18 && $temperature <= 24) {
         $pdo->prepare("INSERT INTO stable_reading (temperature, humidity, status) VALUES (?, ?, ?)")

@@ -74,6 +74,12 @@ function initTables($pdo) {
             status VARCHAR(20) NOT NULL DEFAULT 'LOW',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS device_status (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            status VARCHAR(10) NOT NULL DEFAULT 'online',
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT single_row CHECK (id = 1)
+        )");
     } else {
         $pdo->exec("CREATE TABLE IF NOT EXISTS temperature_reading (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -108,6 +114,12 @@ function initTables($pdo) {
             humidity FLOAT NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'LOW',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS device_status (
+            id INT PRIMARY KEY DEFAULT 1,
+            status VARCHAR(10) NOT NULL DEFAULT 'online',
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CHECK (id = 1)
         )");
     }
 }

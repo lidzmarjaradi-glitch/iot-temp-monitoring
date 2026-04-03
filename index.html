@@ -2093,7 +2093,10 @@
         // ── API Calls ──
         async function fetchAPI(action, params = '') {
             try {
-                const res = await fetch(`${API}?action=${action}${params}`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+                const res = await fetch(`${API}?action=${action}${params}`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 return await res.json();
             } catch (e) {
                 console.error('API Error:', e);
@@ -2103,10 +2106,8 @@
 
         // ── Update Dashboard ──
         async function updateLatest() {
-            if (!deviceOnline) return;
-
             const data = _latestCache || await fetchAPI('latest');
-            if (!data || !data.temperature) return;
+            if (!data || !data.temperature || !deviceOnline) return;
 
             const temp = parseFloat(data.temperature);
             const hum = parseFloat(data.humidity);
@@ -2188,38 +2189,26 @@
             document.getElementById('tempRange').textContent = `Min: ${stats.min_temp || '--'} / Max: ${stats.max_temp || '--'}`;
             document.getElementById('humRange').textContent = `Min: ${stats.min_hum || '--'} / Max: ${stats.max_hum || '--'}`;
 
-            // Update device status based on latest reading time
             _latestCache = latest; // Cache for updateLatest() to reuse
             const statusEl = document.getElementById('deviceStatus');
 
-            if (latest.created_at) {
-                const lastTime = new Date(latest.created_at);
-                const now = latest.server_time ? new Date(latest.server_time) : new Date();
-                const diffSec = Math.floor((now - lastTime) / 1000);
+            // Device status from heartbeat table (independent of temperature data)
+            const isOnline = !!latest.device_online;
+            const indicator = isOnline ? 'online' : 'offline';
+            const label = isOnline ? 'Online' : 'Offline';
+            const labelClass = isOnline ? 'status-online' : 'status-offline';
 
-                let isOnline = diffSec <= 30;
-                let indicator = isOnline ? 'online' : 'offline';
-                let label = isOnline ? 'Online' : 'Offline';
-                let labelClass = isOnline ? 'status-online' : 'status-offline';
+            statusEl.innerHTML = `<span class="status-indicator ${indicator}"></span><span class="${labelClass}">${label}</span>`;
+            deviceOnline = isOnline;
 
-                statusEl.innerHTML = `<span class="status-indicator ${indicator}"></span><span class="${labelClass}">${label}</span>`;
-
-                deviceOnline = isOnline;
-
-                // Reset gauges, stats, and status cards when offline
-                if (!isOnline) {
-                    updateTempGauge(0);
-                    updateHumGauge(0);
-                    document.getElementById('tempGaugeValue').innerHTML = `--<span>°C</span>`;
-                    document.getElementById('humGaugeValue').innerHTML = `--<span>%</span>`;
-                    document.getElementById('currentTemp').innerHTML = `--<span class="stat-unit"> °C</span>`;
-                    document.getElementById('currentHum').innerHTML = `--<span class="stat-unit"> %</span>`;
-                    resetOfflineUI();
-                }
-            } else {
-                // No data in database — device is offline
-                deviceOnline = false;
-                statusEl.innerHTML = `<span class="status-indicator offline"></span><span class="status-offline">Offline</span>`;
+            // Reset gauges and status cards when offline
+            if (!isOnline) {
+                updateTempGauge(0);
+                updateHumGauge(0);
+                document.getElementById('tempGaugeValue').innerHTML = `--<span>°C</span>`;
+                document.getElementById('humGaugeValue').innerHTML = `--<span>%</span>`;
+                document.getElementById('currentTemp').innerHTML = `--<span class="stat-unit"> °C</span>`;
+                document.getElementById('currentHum').innerHTML = `--<span class="stat-unit"> %</span>`;
                 resetOfflineUI();
             }
         }
