@@ -53,35 +53,46 @@ void sendToDatabase(float temperature, float humidity)
 {
   if (WiFi.status() == WL_CONNECTED)
   {
-    HTTPClient http;
+    for (int attempt = 0; attempt < 2; attempt++)
+    {
+      HTTPClient http;
 
 #if LOCAL_TEST
-    // Local: plain HTTP to XAMPP
-    WiFiClient client;
-    String url = "http://" LOCAL_SERVER ":" + String(LOCAL_PORT) + "/iot-temp-monitoring/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
-    http.begin(client, url);
+      // Local: plain HTTP to XAMPP
+      WiFiClient client;
+      String url = "http://" LOCAL_SERVER ":" + String(LOCAL_PORT) + "/iot-temp-monitoring/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
+      http.begin(client, url);
+      http.setTimeout(3000);
 #else
-    // Production: HTTPS to remote server
-    BearSSL::WiFiClientSecure client;
-    client.setInsecure();
-    String url = "https://iot-temp-monitoring-iq6o.onrender.com/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
-    http.begin(client, url);
+      // Production: HTTPS to remote server
+      BearSSL::WiFiClientSecure client;
+      client.setInsecure();
+      String url = "https://iot-temp-monitoring-iq6o.onrender.com/log.php?temp=" + String(temperature) + "&hum=" + String(humidity);
+      http.begin(client, url);
+      http.setTimeout(10000); // 10s timeout for Render (cold starts can be slow)
 #endif
 
-    http.setTimeout(2000);
-    int httpCode = http.GET();
+      int httpCode = http.GET();
 
-    if (httpCode == 200)
-    {
-      String payload = http.getString();
-      Serial.println("Database: " + payload);
-    }
-    else
-    {
-      Serial.println("Database Error: HTTP " + String(httpCode));
-    }
+      if (httpCode == 200)
+      {
+        String payload = http.getString();
+        Serial.println("Database: " + payload);
+        http.end();
+        return; // Success, exit retry loop
+      }
+      else
+      {
+        Serial.println("Database Error (attempt " + String(attempt + 1) + "): HTTP " + String(httpCode));
+      }
 
-    http.end();
+      http.end();
+      if (attempt == 0)
+      {
+        delay(1000); // Wait 1s before retry
+        yield();
+      }
+    }
   }
 }
 
@@ -295,7 +306,7 @@ void setup()
   }
 
   bootTime = millis();
-  timer.setInterval(5000L, sendDHTData); // 5 seconds — gives ESP8266 time to complete HTTP
+  timer.setInterval(10000L, sendDHTData); // 10 seconds — allows time for HTTPS + retry on Render
 }
 
 unsigned long lastWiFiRetry = 0;
