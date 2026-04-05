@@ -1,22 +1,31 @@
 <?php
 /**
- * Seeds realistic 24/7 temperature/humidity data from March 30 to April 5, 2026.
- * Readings every 10 minutes with diurnal patterns typical of a Philippine indoor sensor.
+ * Seeds continuous 24/7 sensor data from March 30 to April 5, 2026.
+ * Simulates an always-on device sending readings every 2 minutes (~5,040 records).
  *
  * Usage: https://your-app.onrender.com/seed_data.php
  */
 
 header('Content-Type: text/plain');
-set_time_limit(300);
+set_time_limit(600);
 
 require_once __DIR__ . '/db.php';
 
 $pdo = getDB();
 initTables($pdo);
 
+// ── Clear old data first ──
+echo "Clearing old data...\n";
+$pdo->exec("DELETE FROM temperature_reading");
+$pdo->exec("DELETE FROM stable_reading");
+$pdo->exec("DELETE FROM warning_reading");
+$pdo->exec("DELETE FROM critical_reading");
+try { $pdo->exec("DELETE FROM low_reading"); } catch (Exception $e) {}
+echo "Old data cleared.\n\n";
+
 $start = strtotime('2026-03-30 00:00:00');
 $end   = strtotime('2026-04-05 23:59:59');
-$step  = 600; // 10 minutes
+$step  = 120; // Every 2 minutes — continuous always-on device
 
 $inserted = 0;
 
@@ -30,40 +39,36 @@ $stmtCritical = $pdo->prepare("INSERT INTO critical_reading (temperature, humidi
 $prevTemp = 26.0;
 $prevHum  = 65.0;
 
-echo "Seeding 24/7 data from 2026-03-30 to 2026-04-05...\n\n";
+echo "Seeding continuous 24/7 data (every 2 min) from 2026-03-30 to 2026-04-05...\n\n";
 
 for ($t = $start; $t <= $end; $t += $step) {
-    $hour = (int) date('G', $t);
-    $ts   = date('Y-m-d H:i:s', $t);
+    $hour    = (int) date('G', $t);
+    $minute  = (int) date('i', $t);
+    $ts      = date('Y-m-d H:i:s', $t);
 
-    // ── Target temperature based on time of day (diurnal cycle) ──
-    // Peak ~14:00 (2 PM), trough ~05:00 (5 AM)
-    // Using a cosine curve shifted so min is at 5 AM and max at 2 PM
-    $radians    = (($hour - 14) / 24) * 2 * M_PI;
-    $diurnal    = cos($radians); // 1.0 at 14:00, ~-1.0 at 02:00
+    // ── Smooth diurnal cycle using fractional hour ──
+    $fracHour = $hour + $minute / 60.0;
+    $radians  = (($fracHour - 14) / 24) * 2 * M_PI;
+    $diurnal  = cos($radians);
 
-    // Day-to-day variation: slight drift per day
+    // Day-to-day variation
     $dayIndex   = (int) (($t - $start) / 86400);
     $dayOffsets = [0.0, 0.5, -0.3, 1.2, 0.8, -0.5, 0.3, 1.0];
     $dayBias    = $dayOffsets[$dayIndex % count($dayOffsets)];
 
-    // Base temp range: nighttime low ~24, daytime high ~32
+    // Base temp: nighttime low ~24, daytime high ~32
     $baseTemp = 28.0 + $diurnal * 4.0 + $dayBias;
 
-    // Smooth random walk toward target
-    $jitter   = (mt_rand(-10, 10) / 10.0) * 0.3; // ±0.3 °C noise
-    $prevTemp = $prevTemp + ($baseTemp - $prevTemp) * 0.3 + $jitter;
-    $temp     = round($prevTemp, 1);
+    // Smooth random walk toward target (smaller step for 2-min granularity)
+    $jitter   = (mt_rand(-10, 10) / 10.0) * 0.15;
+    $prevTemp = $prevTemp + ($baseTemp - $prevTemp) * 0.08 + $jitter;
+    $temp     = round(max(20.0, min(36.0, $prevTemp)), 1);
 
-    // ── Humidity: inversely correlated with temperature ──
-    // Higher at night / cooler temps, lower during hot afternoon
-    $baseHum  = 72.0 - $diurnal * 10.0 + $dayBias * -1.5;
-    $humJitter = (mt_rand(-10, 10) / 10.0) * 1.5;
-    $prevHum   = $prevHum + ($baseHum - $prevHum) * 0.25 + $humJitter;
+    // Humidity: inversely correlated with temperature
+    $baseHum   = 72.0 - $diurnal * 10.0 + $dayBias * -1.5;
+    $humJitter = (mt_rand(-10, 10) / 10.0) * 0.8;
+    $prevHum   = $prevHum + ($baseHum - $prevHum) * 0.06 + $humJitter;
     $hum       = round(max(45.0, min(90.0, $prevHum)), 1);
-
-    // Clamp temperature to realistic sensor range
-    $temp = max(20.0, min(36.0, $temp));
 
     // Insert main reading
     $stmtMain->execute([$temp, $hum, $ts]);
@@ -79,10 +84,10 @@ for ($t = $start; $t <= $end; $t += $step) {
 
     $inserted++;
 
-    // Print progress every hour
-    if ($t % 3600 === 0) {
-        echo "[$ts] temp={$temp}°C  hum={$hum}%\n";
+    // Print progress every 6 hours
+    if ($t % 21600 === 0) {
+        echo "[$ts] temp={$temp}°C  hum={$hum}%  ({$inserted} rows)\n";
     }
 }
 
-echo "\nDone! Inserted {$inserted} readings.\n";
+echo "\nDone! Inserted {$inserted} continuous readings over 7 days.\n";
