@@ -167,10 +167,30 @@ switch ($action) {
             echo json_encode(array_reverse($data));
 
         } elseif ($view === 'day') {
-            $stmt = $pdo->prepare("SELECT temperature, humidity, created_at
-                FROM temperature_reading 
-                WHERE DATE(created_at) = ?
-                ORDER BY id ASC");
+            // Aggregate to 5-minute averages (~288 points per day)
+            if (isPostgres()) {
+                $stmt = $pdo->prepare("SELECT 
+                    ROUND(AVG(temperature)::numeric, 2) as temperature,
+                    ROUND(AVG(humidity)::numeric, 2) as humidity,
+                    date_trunc('hour', created_at) + 
+                        (EXTRACT(minute FROM created_at)::int / 5) * INTERVAL '5 minutes' as created_at
+                    FROM temperature_reading 
+                    WHERE DATE(created_at) = ?
+                    GROUP BY date_trunc('hour', created_at) + 
+                        (EXTRACT(minute FROM created_at)::int / 5) * INTERVAL '5 minutes'
+                    ORDER BY created_at ASC");
+            } else {
+                $stmt = $pdo->prepare("SELECT 
+                    ROUND(AVG(temperature), 2) as temperature,
+                    ROUND(AVG(humidity), 2) as humidity,
+                    DATE_FORMAT(created_at, '%Y-%m-%d %H:') as h,
+                    LPAD(FLOOR(MINUTE(created_at)/5)*5, 2, '0') as m,
+                    CONCAT(DATE_FORMAT(created_at, '%Y-%m-%d %H:'), LPAD(FLOOR(MINUTE(created_at)/5)*5, 2, '0'), ':00') as created_at
+                    FROM temperature_reading 
+                    WHERE DATE(created_at) = ?
+                    GROUP BY h, m
+                    ORDER BY created_at ASC");
+            }
             $stmt->execute([$date]);
             $readings = $stmt->fetchAll();
 
