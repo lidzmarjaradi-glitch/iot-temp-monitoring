@@ -2640,13 +2640,19 @@
             });
         }
 
+        function fmtReportTime(ts) {
+            if (!ts) return '--';
+            const d = new Date(ts.replace(' ', 'T'));
+            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+
         async function exportCSV() {
             openDatePicker('Temperature Reading Report', async (date) => {
                 const data = await fetchAPI('all', `&date=${date}&report=1`);
                 const stats = await fetchAPI('stats', `&date=${date}`);
                 if (!data || !data.length) { showToast('No data for selected date', true); return; }
-                await generatePDF('Temperature Reading Report', data, stats, ['Time Period', 'Avg Temp (°C)', 'Avg Humidity (%)', 'Readings'],
-                    row => [row.created_at, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.readings],
+                await generatePDF('Temperature Reading Report', data, stats, ['Time', 'Avg Temp (°C)', 'Avg Humidity (%)', 'Readings'],
+                    row => [fmtReportTime(row.created_at), parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.readings],
                     `temperature_reading_report_${date}`);
                 showToast('Report generated');
             });
@@ -2781,8 +2787,8 @@
                 const data = await fetchAPI(cfg.api, `&date=${date}&report=1`);
                 const stats = await fetchAPI(`${cfg.api}_stats`, `&date=${date}`);
                 if (!data || !data.length) { showToast(`No ${cfg.label.toLowerCase()} readings for selected date`, true); return; }
-                await generatePDF(`${cfg.label} Readings Report`, data, stats, ['Time Period', 'Avg Temp (°C)', 'Avg Humidity (%)', 'Status', 'Readings'],
-                    row => [row.created_at, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.readings],
+                await generatePDF(`${cfg.label} Readings Report`, data, stats, ['Time', 'Avg Temp (°C)', 'Avg Humidity (%)', 'Status', 'Readings'],
+                    row => [fmtReportTime(row.created_at), parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.readings],
                     `${type}_readings_report_${date}`, true);
                 showToast(`${cfg.label} report generated`);
             });
@@ -3037,7 +3043,7 @@
                     textColor: [...darkText],
                 },
                 columnStyles: {
-                    0: { cellWidth: 14, halign: 'center' },
+                    0: { cellWidth: 28, halign: 'center' },
                 },
                 didDrawPage: function () {
                     // Placeholder — footers drawn after total pages known
