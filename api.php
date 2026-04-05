@@ -198,48 +198,65 @@ switch ($action) {
             echo json_encode(['readings' => $readings, 'summary' => $stmtStats->fetch()]);
 
         } elseif ($view === 'week') {
+            // Downsample: ~1 reading per 5 minutes (every 30th row) for 7 days
             if (isPostgres()) {
-                $data = $pdo->query("SELECT temperature, humidity, created_at
+                $data = $pdo->query("SELECT temperature, humidity, created_at FROM (
+                    SELECT temperature, humidity, created_at, 
+                           ROW_NUMBER() OVER (ORDER BY id ASC) as rn
                     FROM temperature_reading 
                     WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
-                    ORDER BY id ASC")->fetchAll();
+                ) sub WHERE rn % 30 = 1 ORDER BY created_at ASC")->fetchAll();
             } else {
-                $data = $pdo->query("SELECT temperature, humidity, created_at
-                    FROM temperature_reading 
+                $data = $pdo->query("SELECT temperature, humidity, created_at FROM (
+                    SELECT temperature, humidity, created_at, 
+                           @rn := @rn + 1 as rn
+                    FROM temperature_reading, (SELECT @rn := 0) r
                     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-                    ORDER BY id ASC")->fetchAll();
+                    ORDER BY id ASC
+                ) sub WHERE rn % 30 = 1")->fetchAll();
             }
             echo json_encode($data);
 
         } elseif ($view === 'month') {
             $comparePrev = isset($_GET['compare']) && $_GET['compare'] === '1';
 
+            // Downsample: ~1 reading per 15 minutes (every 90th row) for 30 days
             if (isPostgres()) {
-                $current = $pdo->query("SELECT temperature, humidity, created_at
+                $current = $pdo->query("SELECT temperature, humidity, created_at FROM (
+                    SELECT temperature, humidity, created_at,
+                           ROW_NUMBER() OVER (ORDER BY id ASC) as rn
                     FROM temperature_reading 
                     WHERE created_at >= CURRENT_DATE - INTERVAL '29 days'
-                    ORDER BY id ASC")->fetchAll();
+                ) sub WHERE rn % 90 = 1 ORDER BY created_at ASC")->fetchAll();
             } else {
-                $current = $pdo->query("SELECT temperature, humidity, created_at
-                    FROM temperature_reading 
+                $current = $pdo->query("SELECT temperature, humidity, created_at FROM (
+                    SELECT temperature, humidity, created_at,
+                           @rn := @rn + 1 as rn
+                    FROM temperature_reading, (SELECT @rn := 0) r
                     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
-                    ORDER BY id ASC")->fetchAll();
+                    ORDER BY id ASC
+                ) sub WHERE rn % 90 = 1")->fetchAll();
             }
             $response = ['current' => $current];
 
             if ($comparePrev) {
                 if (isPostgres()) {
-                    $prev = $pdo->query("SELECT temperature, humidity, created_at
+                    $prev = $pdo->query("SELECT temperature, humidity, created_at FROM (
+                        SELECT temperature, humidity, created_at,
+                               ROW_NUMBER() OVER (ORDER BY id ASC) as rn
                         FROM temperature_reading 
                         WHERE created_at >= CURRENT_DATE - INTERVAL '59 days'
                           AND created_at < CURRENT_DATE - INTERVAL '29 days'
-                        ORDER BY id ASC")->fetchAll();
+                    ) sub WHERE rn % 90 = 1 ORDER BY created_at ASC")->fetchAll();
                 } else {
-                    $prev = $pdo->query("SELECT temperature, humidity, created_at
-                        FROM temperature_reading 
+                    $prev = $pdo->query("SELECT temperature, humidity, created_at FROM (
+                        SELECT temperature, humidity, created_at,
+                               @rn2 := @rn2 + 1 as rn
+                        FROM temperature_reading, (SELECT @rn2 := 0) r
                         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 59 DAY)
                           AND created_at < DATE_SUB(CURDATE(), INTERVAL 29 DAY)
-                        ORDER BY id ASC")->fetchAll();
+                        ORDER BY id ASC
+                    ) sub WHERE rn % 90 = 1")->fetchAll();
                 }
                 $response['previous'] = $prev;
             }
