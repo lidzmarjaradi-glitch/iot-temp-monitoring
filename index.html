@@ -2228,9 +2228,9 @@
                 if (hasNewData || _fullRefreshNeeded) {
                     _fullRefreshNeeded = false;
                     _lastTableHash = '';
+                    // Stagger requests: chart+main table first, then status tables
+                    await Promise.all([updateChart(), updateTable()]);
                     await Promise.all([
-                        updateChart(),
-                        updateTable(),
                         updateStableTable(),
                         updateWarningTable(),
                         updateCriticalTable(),
@@ -3103,7 +3103,7 @@
         // ── Init ──
         document.getElementById('chartDatePicker').value = localDateStr(new Date());
         refreshData();
-        refreshInterval = setInterval(refreshData, 3000); // 3s — lightweight poll, only fetches chart+tables when new data arrives
+        refreshInterval = setInterval(refreshData, 5000); // 5s — balanced for Render free tier
         checkMonthlyReport(); // Auto-generate end-of-month reports
     </script>
 </body>

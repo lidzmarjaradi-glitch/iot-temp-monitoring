@@ -79,6 +79,14 @@ function initTables($pdo) {
             status VARCHAR(10) NOT NULL DEFAULT 'online',
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )");
+
+        // Indexes for query performance
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_temp_reading_created ON temperature_reading (created_at)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_temp_reading_id_desc ON temperature_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_stable_id_desc ON stable_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_warning_id_desc ON warning_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_critical_id_desc ON critical_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_low_id_desc ON low_reading (id DESC)");
     } else {
         $pdo->exec("CREATE TABLE IF NOT EXISTS temperature_reading (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -119,6 +127,14 @@ function initTables($pdo) {
             status VARCHAR(10) NOT NULL DEFAULT 'online',
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )");
+
+        // Indexes for query performance
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_temp_reading_created ON temperature_reading (created_at)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_temp_reading_id_desc ON temperature_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_stable_id_desc ON stable_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_warning_id_desc ON warning_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_critical_id_desc ON critical_reading (id DESC)");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_low_id_desc ON low_reading (id DESC)");
     }
 }
 

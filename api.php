@@ -23,27 +23,43 @@ switch ($action) {
         }
         $result['latest'] = $row ?: null;
 
-        // Stats
-        if (isPostgres()) {
-            $result['stats'] = $pdo->query("SELECT 
-                COUNT(*) as total_records,
-                ROUND(AVG(temperature)::numeric, 1) as avg_temp,
-                ROUND(MIN(temperature)::numeric, 1) as min_temp,
-                ROUND(MAX(temperature)::numeric, 1) as max_temp,
-                ROUND(AVG(humidity)::numeric, 1) as avg_hum,
-                ROUND(MIN(humidity)::numeric, 1) as min_hum,
-                ROUND(MAX(humidity)::numeric, 1) as max_hum
-                FROM temperature_reading")->fetch();
+        // Stats — use cached aggregate, refreshed every 30s
+        $statsCacheFile = sys_get_temp_dir() . '/iot_stats_cache.json';
+        $statsCache = null;
+        if (file_exists($statsCacheFile)) {
+            $cached = json_decode(file_get_contents($statsCacheFile), true);
+            if ($cached && isset($cached['_ts']) && (time() - $cached['_ts']) < 30) {
+                $statsCache = $cached;
+                unset($statsCache['_ts']);
+            }
+        }
+        if ($statsCache) {
+            $result['stats'] = $statsCache;
         } else {
-            $result['stats'] = $pdo->query("SELECT 
-                COUNT(*) as total_records,
-                ROUND(AVG(temperature), 1) as avg_temp,
-                ROUND(MIN(temperature), 1) as min_temp,
-                ROUND(MAX(temperature), 1) as max_temp,
-                ROUND(AVG(humidity), 1) as avg_hum,
-                ROUND(MIN(humidity), 1) as min_hum,
-                ROUND(MAX(humidity), 1) as max_hum
-                FROM temperature_reading")->fetch();
+            if (isPostgres()) {
+                $result['stats'] = $pdo->query("SELECT 
+                    COUNT(*) as total_records,
+                    ROUND(AVG(temperature)::numeric, 1) as avg_temp,
+                    ROUND(MIN(temperature)::numeric, 1) as min_temp,
+                    ROUND(MAX(temperature)::numeric, 1) as max_temp,
+                    ROUND(AVG(humidity)::numeric, 1) as avg_hum,
+                    ROUND(MIN(humidity)::numeric, 1) as min_hum,
+                    ROUND(MAX(humidity)::numeric, 1) as max_hum
+                    FROM temperature_reading")->fetch();
+            } else {
+                $result['stats'] = $pdo->query("SELECT 
+                    COUNT(*) as total_records,
+                    ROUND(AVG(temperature), 1) as avg_temp,
+                    ROUND(MIN(temperature), 1) as min_temp,
+                    ROUND(MAX(temperature), 1) as max_temp,
+                    ROUND(AVG(humidity), 1) as avg_hum,
+                    ROUND(MIN(humidity), 1) as min_hum,
+                    ROUND(MAX(humidity), 1) as max_hum
+                    FROM temperature_reading")->fetch();
+            }
+            $toCache = $result['stats'];
+            $toCache['_ts'] = time();
+            file_put_contents($statsCacheFile, json_encode($toCache));
         }
 
         // Device status
