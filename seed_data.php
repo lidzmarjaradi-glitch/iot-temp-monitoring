@@ -15,13 +15,24 @@ $pdo = getDB();
 initTables($pdo);
 
 // ── Clear old data first ──
-echo "Clearing old data...\n";
-$pdo->exec("DELETE FROM temperature_reading");
-$pdo->exec("DELETE FROM stable_reading");
-$pdo->exec("DELETE FROM warning_reading");
-$pdo->exec("DELETE FROM critical_reading");
-try { $pdo->exec("DELETE FROM low_reading"); } catch (Exception $e) {}
-echo "Old data cleared.\n\n";
+$mode = isset($_GET['mode']) ? $_GET['mode'] : 'seed';
+
+echo "Clearing all tables...\n";
+foreach (['temperature_reading','stable_reading','warning_reading','critical_reading','low_reading'] as $tbl) {
+    try {
+        if (isPostgres()) {
+            $pdo->exec("TRUNCATE TABLE {$tbl} RESTART IDENTITY");
+        } else {
+            $pdo->exec("TRUNCATE TABLE {$tbl}");
+        }
+    } catch (Exception $e) {}
+}
+echo "All tables cleared.\n\n";
+
+if ($mode === 'clean') {
+    echo "Done! All data deleted.\n";
+    exit;
+}
 
 $start = strtotime('2026-03-30 00:00:00');
 $end   = strtotime('2026-04-05 23:59:59');
