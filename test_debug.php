@@ -1,6 +1,6 @@
 <?php
 include 'db.php';
-$pdo = getConnection();
+$pdo = getDB();
 
 $results = [];
 
