@@ -1,9 +1,9 @@
 <?php
 /**
- * Seeds realistic temperature/humidity data from March 30 to April 6, 2026.
+ * Seeds realistic 24/7 temperature/humidity data from March 30 to April 5, 2026.
  * Readings every 10 minutes with diurnal patterns typical of a Philippine indoor sensor.
  *
- * Usage: http://localhost/iot-temp-monitoring/seed_data.php
+ * Usage: https://your-app.onrender.com/seed_data.php
  */
 
 header('Content-Type: text/plain');
@@ -15,7 +15,7 @@ $pdo = getDB();
 initTables($pdo);
 
 $start = strtotime('2026-03-30 00:00:00');
-$end   = strtotime('2026-04-06 23:59:59');
+$end   = strtotime('2026-04-05 23:59:59');
 $step  = 600; // 10 minutes
 
 $inserted = 0;
@@ -30,7 +30,7 @@ $stmtCritical = $pdo->prepare("INSERT INTO critical_reading (temperature, humidi
 $prevTemp = 26.0;
 $prevHum  = 65.0;
 
-echo "Seeding data from 2026-03-30 to 2026-04-06...\n\n";
+echo "Seeding 24/7 data from 2026-03-30 to 2026-04-05...\n\n";
 
 for ($t = $start; $t <= $end; $t += $step) {
     $hour = (int) date('G', $t);
