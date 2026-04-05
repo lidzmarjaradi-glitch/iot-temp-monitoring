@@ -2018,10 +2018,12 @@
         <div class="modal">
             <h3 id="datePickerTitle">Select Date</h3>
             <p>Choose the date for the report:</p>
-            <input type="date" id="datePickerInput" style="width:100%;padding:10px;margin:0 0 20px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:1rem;">
+            <input type="date" id="datePickerInput"
+                style="width:100%;padding:10px;margin:0 0 20px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:1rem;">
             <div class="modal-actions">
                 <button class="btn" onclick="closeDatePicker()">Cancel</button>
-                <button class="btn" id="datePickerConfirm" style="background:var(--accent-blue);color:#fff;">Generate</button>
+                <button class="btn" id="datePickerConfirm"
+                    style="background:var(--accent-blue);color:#fff;">Generate</button>
             </div>
         </div>
     </div>
@@ -2640,11 +2642,11 @@
 
         async function exportCSV() {
             openDatePicker('Temperature Reading Report', async (date) => {
-                const data = await fetchAPI('all', `&date=${date}`);
+                const data = await fetchAPI('all', `&date=${date}&report=1`);
                 const stats = await fetchAPI('stats', `&date=${date}`);
                 if (!data || !data.length) { showToast('No data for selected date', true); return; }
-                await generatePDF('Temperature Reading Report', data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Timestamp'],
-                    row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.created_at],
+                await generatePDF('Temperature Reading Report', data, stats, ['Time Period', 'Avg Temp (°C)', 'Avg Humidity (%)', 'Readings'],
+                    row => [row.created_at, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.readings],
                     `temperature_reading_report_${date}`);
                 showToast('Report generated');
             });
@@ -2776,11 +2778,11 @@
         async function exportStatusReport(type) {
             const cfg = statusConfig[type];
             openDatePicker(`${cfg.label} Readings Report`, async (date) => {
-                const data = await fetchAPI(cfg.api, `&date=${date}`);
+                const data = await fetchAPI(cfg.api, `&date=${date}&report=1`);
                 const stats = await fetchAPI(`${cfg.api}_stats`, `&date=${date}`);
                 if (!data || !data.length) { showToast(`No ${cfg.label.toLowerCase()} readings for selected date`, true); return; }
-                await generatePDF(`${cfg.label} Readings Report`, data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Status', 'Timestamp'],
-                    row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.created_at],
+                await generatePDF(`${cfg.label} Readings Report`, data, stats, ['Time Period', 'Avg Temp (°C)', 'Avg Humidity (%)', 'Status', 'Readings'],
+                    row => [row.created_at, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.readings],
                     `${type}_readings_report_${date}`, true);
                 showToast(`${cfg.label} report generated`);
             });

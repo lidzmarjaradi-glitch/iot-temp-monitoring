@@ -152,8 +152,35 @@ switch ($action) {
     // Get all records (with optional limit and date filter)
     case 'all':
         if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
-            $stmt = $pdo->prepare("SELECT * FROM temperature_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
-            $stmt->execute([$_GET['date']]);
+            if (isset($_GET['report'])) {
+                // 5-minute aggregation for reports (~288 rows per day)
+                if (isPostgres()) {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature)::numeric, 1) as temperature,
+                        ROUND(AVG(humidity)::numeric, 1) as humidity,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM temperature_reading
+                        WHERE DATE(created_at) = ?
+                        GROUP BY date_trunc('hour', created_at) + 
+                            (EXTRACT(minute FROM created_at)::int / 5) * interval '5 min'
+                        ORDER BY MIN(created_at) ASC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature), 1) as temperature,
+                        ROUND(AVG(humidity), 1) as humidity,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM temperature_reading
+                        WHERE DATE(created_at) = ?
+                        GROUP BY DATE(created_at), HOUR(created_at), FLOOR(MINUTE(created_at)/5)
+                        ORDER BY MIN(created_at) ASC");
+                }
+                $stmt->execute([$_GET['date']]);
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM temperature_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+                $stmt->execute([$_GET['date']]);
+            }
         } else {
             $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
             $stmt = $pdo->query("SELECT * FROM temperature_reading ORDER BY id DESC LIMIT {$limit}");
@@ -354,8 +381,34 @@ switch ($action) {
     // ── Stable Reading Endpoints ──
     case 'stable':
         if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
-            $stmt = $pdo->prepare("SELECT * FROM stable_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
-            $stmt->execute([$_GET['date']]);
+            if (isset($_GET['report'])) {
+                if (isPostgres()) {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature)::numeric, 1) as temperature,
+                        ROUND(AVG(humidity)::numeric, 1) as humidity,
+                        'STABLE' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM stable_reading WHERE DATE(created_at) = ?
+                        GROUP BY date_trunc('hour', created_at) + 
+                            (EXTRACT(minute FROM created_at)::int / 5) * interval '5 min'
+                        ORDER BY MIN(created_at) ASC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature), 1) as temperature,
+                        ROUND(AVG(humidity), 1) as humidity,
+                        'STABLE' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM stable_reading WHERE DATE(created_at) = ?
+                        GROUP BY DATE(created_at), HOUR(created_at), FLOOR(MINUTE(created_at)/5)
+                        ORDER BY MIN(created_at) ASC");
+                }
+                $stmt->execute([$_GET['date']]);
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM stable_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+                $stmt->execute([$_GET['date']]);
+            }
         } else {
             $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
             $stmt = $pdo->query("SELECT * FROM stable_reading ORDER BY id DESC LIMIT {$limit}");
@@ -394,8 +447,34 @@ switch ($action) {
     // ── Warning Reading Endpoints ──
     case 'warning':
         if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
-            $stmt = $pdo->prepare("SELECT * FROM warning_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
-            $stmt->execute([$_GET['date']]);
+            if (isset($_GET['report'])) {
+                if (isPostgres()) {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature)::numeric, 1) as temperature,
+                        ROUND(AVG(humidity)::numeric, 1) as humidity,
+                        'WARNING' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM warning_reading WHERE DATE(created_at) = ?
+                        GROUP BY date_trunc('hour', created_at) + 
+                            (EXTRACT(minute FROM created_at)::int / 5) * interval '5 min'
+                        ORDER BY MIN(created_at) ASC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature), 1) as temperature,
+                        ROUND(AVG(humidity), 1) as humidity,
+                        'WARNING' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM warning_reading WHERE DATE(created_at) = ?
+                        GROUP BY DATE(created_at), HOUR(created_at), FLOOR(MINUTE(created_at)/5)
+                        ORDER BY MIN(created_at) ASC");
+                }
+                $stmt->execute([$_GET['date']]);
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM warning_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+                $stmt->execute([$_GET['date']]);
+            }
         } else {
             $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
             $stmt = $pdo->query("SELECT * FROM warning_reading ORDER BY id DESC LIMIT {$limit}");
@@ -434,8 +513,34 @@ switch ($action) {
     // ── Critical Reading Endpoints ──
     case 'critical':
         if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
-            $stmt = $pdo->prepare("SELECT * FROM critical_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
-            $stmt->execute([$_GET['date']]);
+            if (isset($_GET['report'])) {
+                if (isPostgres()) {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature)::numeric, 1) as temperature,
+                        ROUND(AVG(humidity)::numeric, 1) as humidity,
+                        'CRITICAL' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM critical_reading WHERE DATE(created_at) = ?
+                        GROUP BY date_trunc('hour', created_at) + 
+                            (EXTRACT(minute FROM created_at)::int / 5) * interval '5 min'
+                        ORDER BY MIN(created_at) ASC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature), 1) as temperature,
+                        ROUND(AVG(humidity), 1) as humidity,
+                        'CRITICAL' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM critical_reading WHERE DATE(created_at) = ?
+                        GROUP BY DATE(created_at), HOUR(created_at), FLOOR(MINUTE(created_at)/5)
+                        ORDER BY MIN(created_at) ASC");
+                }
+                $stmt->execute([$_GET['date']]);
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM critical_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+                $stmt->execute([$_GET['date']]);
+            }
         } else {
             $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
             $stmt = $pdo->query("SELECT * FROM critical_reading ORDER BY id DESC LIMIT {$limit}");
@@ -474,8 +579,34 @@ switch ($action) {
     // ── Low Reading Endpoints ──
     case 'low':
         if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
-            $stmt = $pdo->prepare("SELECT * FROM low_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
-            $stmt->execute([$_GET['date']]);
+            if (isset($_GET['report'])) {
+                if (isPostgres()) {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature)::numeric, 1) as temperature,
+                        ROUND(AVG(humidity)::numeric, 1) as humidity,
+                        'LOW' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM low_reading WHERE DATE(created_at) = ?
+                        GROUP BY date_trunc('hour', created_at) + 
+                            (EXTRACT(minute FROM created_at)::int / 5) * interval '5 min'
+                        ORDER BY MIN(created_at) ASC");
+                } else {
+                    $stmt = $pdo->prepare("SELECT 
+                        ROUND(AVG(temperature), 1) as temperature,
+                        ROUND(AVG(humidity), 1) as humidity,
+                        'LOW' as status,
+                        MIN(created_at) as created_at,
+                        COUNT(*) as readings
+                        FROM low_reading WHERE DATE(created_at) = ?
+                        GROUP BY DATE(created_at), HOUR(created_at), FLOOR(MINUTE(created_at)/5)
+                        ORDER BY MIN(created_at) ASC");
+                }
+                $stmt->execute([$_GET['date']]);
+            } else {
+                $stmt = $pdo->prepare("SELECT * FROM low_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+                $stmt->execute([$_GET['date']]);
+            }
         } else {
             $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
             $stmt = $pdo->query("SELECT * FROM low_reading ORDER BY id DESC LIMIT {$limit}");
