@@ -37,25 +37,35 @@ switch ($action) {
             $result['stats'] = $statsCache;
         } else {
             if (isPostgres()) {
-                $result['stats'] = $pdo->query("SELECT 
-                    COUNT(*) as total_records,
+                // Use subquery with id-based range for speed (avoids full table scan)
+                $maxIdRow = $pdo->query("SELECT MAX(id) as mid FROM temperature_reading")->fetch();
+                $maxId = $maxIdRow ? (int)$maxIdRow['mid'] : 0;
+                $countRow = $pdo->query("SELECT COUNT(*) as total_records FROM temperature_reading")->fetch();
+                // Stats from recent ~8640 rows (approx 1 day at 10s intervals) for fast aggregation
+                $recentLimit = max(1, $maxId - 8640);
+                $statsRow = $pdo->query("SELECT 
                     ROUND(AVG(temperature)::numeric, 1) as avg_temp,
                     ROUND(MIN(temperature)::numeric, 1) as min_temp,
                     ROUND(MAX(temperature)::numeric, 1) as max_temp,
                     ROUND(AVG(humidity)::numeric, 1) as avg_hum,
                     ROUND(MIN(humidity)::numeric, 1) as min_hum,
                     ROUND(MAX(humidity)::numeric, 1) as max_hum
-                    FROM temperature_reading")->fetch();
+                    FROM temperature_reading WHERE id > {$recentLimit}")->fetch();
+                $result['stats'] = array_merge(['total_records' => $countRow['total_records']], $statsRow ?: []);
             } else {
-                $result['stats'] = $pdo->query("SELECT 
-                    COUNT(*) as total_records,
+                $maxIdRow = $pdo->query("SELECT MAX(id) as mid FROM temperature_reading")->fetch();
+                $maxId = $maxIdRow ? (int)$maxIdRow['mid'] : 0;
+                $countRow = $pdo->query("SELECT COUNT(*) as total_records FROM temperature_reading")->fetch();
+                $recentLimit = max(1, $maxId - 8640);
+                $statsRow = $pdo->query("SELECT 
                     ROUND(AVG(temperature), 1) as avg_temp,
                     ROUND(MIN(temperature), 1) as min_temp,
                     ROUND(MAX(temperature), 1) as max_temp,
                     ROUND(AVG(humidity), 1) as avg_hum,
                     ROUND(MIN(humidity), 1) as min_hum,
                     ROUND(MAX(humidity), 1) as max_hum
-                    FROM temperature_reading")->fetch();
+                    FROM temperature_reading WHERE id > {$recentLimit}")->fetch();
+                $result['stats'] = array_merge(['total_records' => $countRow['total_records']], $statsRow ?: []);
             }
             $toCache = $result['stats'];
             $toCache['_ts'] = time();
