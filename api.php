@@ -149,10 +149,15 @@ switch ($action) {
         }
         break;
 
-    // Get all records (with optional limit)
+    // Get all records (with optional limit and date filter)
     case 'all':
-        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
-        $stmt = $pdo->query("SELECT * FROM temperature_reading ORDER BY id DESC LIMIT {$limit}");
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT * FROM temperature_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+            $stmt->execute([$_GET['date']]);
+        } else {
+            $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
+            $stmt = $pdo->query("SELECT * FROM temperature_reading ORDER BY id DESC LIMIT {$limit}");
+        }
         echo json_encode($stmt->fetchAll());
         break;
 
@@ -295,8 +300,14 @@ switch ($action) {
 
     // Get summary stats
     case 'stats':
+        $dateFilter = '';
+        $params = [];
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $dateFilter = 'WHERE DATE(created_at) = ?';
+            $params = [$_GET['date']];
+        }
         if (isPostgres()) {
-            $row = $pdo->query("SELECT 
+            $stmt = $pdo->prepare("SELECT 
                 COUNT(*) as total_records,
                 ROUND(AVG(temperature)::numeric, 1) as avg_temp,
                 ROUND(MIN(temperature)::numeric, 1) as min_temp,
@@ -304,9 +315,9 @@ switch ($action) {
                 ROUND(AVG(humidity)::numeric, 1) as avg_hum,
                 ROUND(MIN(humidity)::numeric, 1) as min_hum,
                 ROUND(MAX(humidity)::numeric, 1) as max_hum
-                FROM temperature_reading")->fetch();
+                FROM temperature_reading $dateFilter");
         } else {
-            $row = $pdo->query("SELECT 
+            $stmt = $pdo->prepare("SELECT 
                 COUNT(*) as total_records,
                 ROUND(AVG(temperature), 1) as avg_temp,
                 ROUND(MIN(temperature), 1) as min_temp,
@@ -314,9 +325,10 @@ switch ($action) {
                 ROUND(AVG(humidity), 1) as avg_hum,
                 ROUND(MIN(humidity), 1) as min_hum,
                 ROUND(MAX(humidity), 1) as max_hum
-                FROM temperature_reading")->fetch();
+                FROM temperature_reading $dateFilter");
         }
-        echo json_encode($row);
+        $stmt->execute($params);
+        echo json_encode($stmt->fetch());
         break;
 
     // Delete single record
@@ -341,13 +353,24 @@ switch ($action) {
 
     // ── Stable Reading Endpoints ──
     case 'stable':
-        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
-        $stmt = $pdo->query("SELECT * FROM stable_reading ORDER BY id DESC LIMIT {$limit}");
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT * FROM stable_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+            $stmt->execute([$_GET['date']]);
+        } else {
+            $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
+            $stmt = $pdo->query("SELECT * FROM stable_reading ORDER BY id DESC LIMIT {$limit}");
+        }
         echo json_encode($stmt->fetchAll());
         break;
 
     case 'stable_stats':
-        echo json_encode($pdo->query("SELECT COUNT(*) as total FROM stable_reading")->fetch());
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM stable_reading WHERE DATE(created_at) = ?");
+            $stmt->execute([$_GET['date']]);
+            echo json_encode($stmt->fetch());
+        } else {
+            echo json_encode($pdo->query("SELECT COUNT(*) as total FROM stable_reading")->fetch());
+        }
         break;
 
     case 'delete_stable':
@@ -370,13 +393,24 @@ switch ($action) {
 
     // ── Warning Reading Endpoints ──
     case 'warning':
-        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
-        $stmt = $pdo->query("SELECT * FROM warning_reading ORDER BY id DESC LIMIT {$limit}");
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT * FROM warning_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+            $stmt->execute([$_GET['date']]);
+        } else {
+            $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
+            $stmt = $pdo->query("SELECT * FROM warning_reading ORDER BY id DESC LIMIT {$limit}");
+        }
         echo json_encode($stmt->fetchAll());
         break;
 
     case 'warning_stats':
-        echo json_encode($pdo->query("SELECT COUNT(*) as total FROM warning_reading")->fetch());
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM warning_reading WHERE DATE(created_at) = ?");
+            $stmt->execute([$_GET['date']]);
+            echo json_encode($stmt->fetch());
+        } else {
+            echo json_encode($pdo->query("SELECT COUNT(*) as total FROM warning_reading")->fetch());
+        }
         break;
 
     case 'delete_warning':
@@ -399,13 +433,24 @@ switch ($action) {
 
     // ── Critical Reading Endpoints ──
     case 'critical':
-        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
-        $stmt = $pdo->query("SELECT * FROM critical_reading ORDER BY id DESC LIMIT {$limit}");
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT * FROM critical_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+            $stmt->execute([$_GET['date']]);
+        } else {
+            $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
+            $stmt = $pdo->query("SELECT * FROM critical_reading ORDER BY id DESC LIMIT {$limit}");
+        }
         echo json_encode($stmt->fetchAll());
         break;
 
     case 'critical_stats':
-        echo json_encode($pdo->query("SELECT COUNT(*) as total FROM critical_reading")->fetch());
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM critical_reading WHERE DATE(created_at) = ?");
+            $stmt->execute([$_GET['date']]);
+            echo json_encode($stmt->fetch());
+        } else {
+            echo json_encode($pdo->query("SELECT COUNT(*) as total FROM critical_reading")->fetch());
+        }
         break;
 
     case 'delete_critical':
@@ -428,13 +473,24 @@ switch ($action) {
 
     // ── Low Reading Endpoints ──
     case 'low':
-        $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
-        $stmt = $pdo->query("SELECT * FROM low_reading ORDER BY id DESC LIMIT {$limit}");
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT * FROM low_reading WHERE DATE(created_at) = ? ORDER BY id ASC");
+            $stmt->execute([$_GET['date']]);
+        } else {
+            $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 500;
+            $stmt = $pdo->query("SELECT * FROM low_reading ORDER BY id DESC LIMIT {$limit}");
+        }
         echo json_encode($stmt->fetchAll());
         break;
 
     case 'low_stats':
-        echo json_encode($pdo->query("SELECT COUNT(*) as total FROM low_reading")->fetch());
+        if (isset($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM low_reading WHERE DATE(created_at) = ?");
+            $stmt->execute([$_GET['date']]);
+            echo json_encode($stmt->fetch());
+        } else {
+            echo json_encode($pdo->query("SELECT COUNT(*) as total FROM low_reading")->fetch());
+        }
         break;
 
     case 'delete_low':

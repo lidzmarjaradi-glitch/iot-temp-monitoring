@@ -2013,6 +2013,19 @@
         </div>
     </div>
 
+    <!-- Date Picker Modal -->
+    <div class="modal-overlay" id="datePickerOverlay">
+        <div class="modal">
+            <h3 id="datePickerTitle">Select Date</h3>
+            <p>Choose the date for the report:</p>
+            <input type="date" id="datePickerInput" style="width:100%;padding:10px;margin:0 0 20px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:1rem;">
+            <div class="modal-actions">
+                <button class="btn" onclick="closeDatePicker()">Cancel</button>
+                <button class="btn" id="datePickerConfirm" style="background:var(--accent-blue);color:#fff;">Generate</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API = 'api.php';
         let tempChart, humChart;
@@ -2076,6 +2089,31 @@
 
         document.getElementById('modalOverlay').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) closeModal();
+        });
+
+        // ── Date Picker Modal ──
+        let datePickerCallback = null;
+
+        function openDatePicker(title, onDateSelected) {
+            document.getElementById('datePickerTitle').textContent = title;
+            const input = document.getElementById('datePickerInput');
+            input.value = new Date().toISOString().split('T')[0];
+            document.getElementById('datePickerOverlay').classList.add('active');
+            datePickerCallback = onDateSelected;
+            document.getElementById('datePickerConfirm').onclick = () => {
+                const selectedDate = input.value;
+                if (!selectedDate) { showToast('Please select a date', true); return; }
+                closeDatePicker();
+                if (datePickerCallback) datePickerCallback(selectedDate);
+            };
+        }
+
+        function closeDatePicker() {
+            document.getElementById('datePickerOverlay').classList.remove('active');
+        }
+
+        document.getElementById('datePickerOverlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeDatePicker();
         });
 
         // ── Offline UI Reset ──
@@ -2601,13 +2639,15 @@
         }
 
         async function exportCSV() {
-            const data = await fetchAPI('all', '&limit=5000');
-            const stats = await fetchAPI('stats');
-            if (!data || !data.length) { showToast('No data to export', true); return; }
-            await generatePDF('Temperature Reading Report', data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Timestamp'],
-                row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.created_at],
-                'temperature_reading_report');
-            showToast('Report generated');
+            openDatePicker('Temperature Reading Report', async (date) => {
+                const data = await fetchAPI('all', `&date=${date}`);
+                const stats = await fetchAPI('stats', `&date=${date}`);
+                if (!data || !data.length) { showToast('No data for selected date', true); return; }
+                await generatePDF('Temperature Reading Report', data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Timestamp'],
+                    row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.created_at],
+                    `temperature_reading_report_${date}`);
+                showToast('Report generated');
+            });
         }
 
         function formatTime(timestamp) {
@@ -2735,13 +2775,15 @@
 
         async function exportStatusReport(type) {
             const cfg = statusConfig[type];
-            const data = await fetchAPI(cfg.api, '&limit=5000');
-            const stats = await fetchAPI(`${cfg.api}_stats`);
-            if (!data || !data.length) { showToast(`No ${cfg.label.toLowerCase()} readings to export`, true); return; }
-            await generatePDF(`${cfg.label} Readings Report`, data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Status', 'Timestamp'],
-                row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.created_at],
-                `${type}_readings_report`, true);
-            showToast(`${cfg.label} report generated`);
+            openDatePicker(`${cfg.label} Readings Report`, async (date) => {
+                const data = await fetchAPI(cfg.api, `&date=${date}`);
+                const stats = await fetchAPI(`${cfg.api}_stats`, `&date=${date}`);
+                if (!data || !data.length) { showToast(`No ${cfg.label.toLowerCase()} readings for selected date`, true); return; }
+                await generatePDF(`${cfg.label} Readings Report`, data, stats, ['ID', 'Temperature (°C)', 'Humidity (%)', 'Status', 'Timestamp'],
+                    row => [row.id, parseFloat(row.temperature).toFixed(1), parseFloat(row.humidity).toFixed(1), row.status, row.created_at],
+                    `${type}_readings_report_${date}`, true);
+                showToast(`${cfg.label} report generated`);
+            });
         }
 
         // ── PDF Report Generator ──
